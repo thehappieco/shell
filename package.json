@@ -1,0 +1,19 @@
+{
+  "name": "@thehappieco/shell",
+  "version": "1.0.0",
+  "description": "The Happie Co's shared shell: the side menu, the header and the look that the console and every app draw (Vue 3 source).",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": "github:thehappieco/shell",
+  "files": ["src", "fixtures", "NOTICE"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css",
+    "./fixtures/answer.json": "./fixtures/answer.json",
+    "./fixtures/return-paths.json": "./fixtures/return-paths.json"
+  },
+  "sideEffects": ["*.css", "*.vue"],
+  "peerDependencies": {
+    "vue": "^3.5.43"
+  }
+}

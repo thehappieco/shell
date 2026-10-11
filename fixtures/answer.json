@@ -1,0 +1,257 @@
+{
+  "v": 1,
+  "console_origin": "http://console.thehappie.localhost:8290",
+  "sub": "0199a0c2-7d3e-7b51-9f0a-2c4e6b8d1f20",
+  "display_name": "Ana Souza",
+  "locale": "pt-BR",
+  "theme": "system",
+  "workspaces": [
+    {
+      "id": "0199a0c2-7d3e-7b51-9f0a-2c4e6b8d1f21",
+      "kind": "personal",
+      "name": null,
+      "role": "owner"
+    },
+    {
+      "id": "0199a0c2-7d3e-7b51-9f0a-2c4e6b8d1f22",
+      "kind": "team",
+      "name": "Equipe",
+      "role": "admin"
+    }
+  ],
+  "menu": {
+    "workspace": [
+      {
+        "id": "general",
+        "path": "/workspaces/{workspace}",
+        "title": {
+          "pt-BR": "Geral",
+          "en": "General",
+          "es": "General"
+        }
+      },
+      {
+        "id": "members",
+        "path": "/workspaces/{workspace}/members",
+        "title": {
+          "pt-BR": "Membros",
+          "en": "Members",
+          "es": "Miembros"
+        }
+      },
+      {
+        "id": "access",
+        "path": "/workspaces/{workspace}/access",
+        "title": {
+          "pt-BR": "Acesso",
+          "en": "Access",
+          "es": "Acceso"
+        }
+      },
+      {
+        "id": "plan",
+        "path": "/workspaces/{workspace}/plan",
+        "title": {
+          "pt-BR": "Plano e assinatura",
+          "en": "Plan and subscription",
+          "es": "Plan y suscripción"
+        }
+      },
+      {
+        "id": "storage",
+        "path": "/workspaces/{workspace}/storage",
+        "title": {
+          "pt-BR": "Armazenamento",
+          "en": "Storage",
+          "es": "Almacenamiento"
+        }
+      },
+      {
+        "id": "activity",
+        "path": "/workspaces/{workspace}/activity",
+        "title": {
+          "pt-BR": "Atividade",
+          "en": "Activity",
+          "es": "Actividad"
+        }
+      },
+      {
+        "id": "settings",
+        "path": "/workspaces/{workspace}/settings",
+        "title": {
+          "pt-BR": "Configurações do espaço",
+          "en": "Workspace settings",
+          "es": "Configuración del espacio"
+        }
+      }
+    ],
+    "account": [
+      {
+        "id": "contacts",
+        "path": "/contacts",
+        "title": {
+          "pt-BR": "Contatos",
+          "en": "Contacts",
+          "es": "Contactos"
+        }
+      },
+      {
+        "id": "ai",
+        "path": "/ai",
+        "title": {
+          "pt-BR": "Integrações com IA",
+          "en": "AI integrations",
+          "es": "Integraciones de IA"
+        }
+      }
+    ],
+    "profile": {
+      "id": "account",
+      "path": "/account",
+      "title": {
+        "pt-BR": "Minha conta",
+        "en": "My account",
+        "es": "Mi cuenta"
+      }
+    },
+    "workspaces_path": "/workspaces",
+    "apps": [
+      {
+        "id": "wappie",
+        "name": "wappie.",
+        "origin": "http://app.wappie.thehappie.localhost:5173",
+        "letter": "W",
+        "color": "green",
+        "in_shell": false,
+        "overview": "/workspaces/{workspace}/apps/wappie",
+        "ai": "/workspaces/{workspace}/apps/wappie/ai",
+        "screens": [
+          {
+            "id": "numbers",
+            "path": "/console?workspace={workspace}",
+            "min_role": "member",
+            "title": {
+              "pt-BR": "Números e permissões",
+              "en": "Numbers and permissions",
+              "es": "Números y permisos"
+            }
+          },
+          {
+            "id": "integrations",
+            "path": "/console?workspace={workspace}",
+            "min_role": "admin",
+            "title": {
+              "pt-BR": "Integrações",
+              "en": "Integrations",
+              "es": "Integraciones"
+            }
+          },
+          {
+            "id": "mcp",
+            "path": "/console?workspace={workspace}",
+            "min_role": "admin",
+            "title": {
+              "pt-BR": "MCP",
+              "en": "MCP",
+              "es": "MCP"
+            }
+          },
+          {
+            "id": "installations",
+            "path": "/console?workspace={workspace}",
+            "min_role": "admin",
+            "title": {
+              "pt-BR": "Instalações e licenças",
+              "en": "Installations and licenses",
+              "es": "Instalaciones y licencias"
+            }
+          }
+        ]
+      },
+      {
+        "id": "mailie",
+        "name": "mailie.",
+        "origin": "http://app.mailie.thehappie.localhost:5174",
+        "letter": "M",
+        "color": "rust",
+        "in_shell": false,
+        "overview": "/workspaces/{workspace}/apps/mailie",
+        "ai": "/workspaces/{workspace}/apps/mailie/ai",
+        "screens": [
+          {
+            "id": "email-accounts",
+            "path": "/",
+            "min_role": "member",
+            "title": {
+              "pt-BR": "Contas de email",
+              "en": "Email accounts",
+              "es": "Cuentas de correo"
+            }
+          },
+          {
+            "id": "api-keys",
+            "path": "/",
+            "min_role": "admin",
+            "title": {
+              "pt-BR": "Chaves de API",
+              "en": "API keys",
+              "es": "Claves de API"
+            }
+          },
+          {
+            "id": "permissions",
+            "path": "/",
+            "min_role": "member",
+            "title": {
+              "pt-BR": "Permissões",
+              "en": "Permissions",
+              "es": "Permisos"
+            }
+          }
+        ]
+      },
+      {
+        "id": "fakeproduct",
+        "name": "Fake product",
+        "origin": "http://fakeproduct.thehappie.localhost:8292",
+        "letter": "F",
+        "color": "violet",
+        "in_shell": true,
+        "overview": "/workspaces/{workspace}/apps/fakeproduct",
+        "ai": "/workspaces/{workspace}/apps/fakeproduct/ai",
+        "screens": [
+          {
+            "id": "numbers",
+            "path": "/console/numbers?workspace={workspace}",
+            "min_role": "member",
+            "title": {
+              "pt-BR": "Números e permissões",
+              "en": "Numbers and permissions",
+              "es": "Números y permisos"
+            }
+          },
+          {
+            "id": "integrations",
+            "path": "/console/integrations?workspace={workspace}",
+            "min_role": "member",
+            "title": {
+              "pt-BR": "Integrações",
+              "en": "Integrations",
+              "es": "Integraciones"
+            }
+          },
+          {
+            "id": "mcp",
+            "path": "/console/mcp?workspace={workspace}",
+            "min_role": "member",
+            "title": {
+              "pt-BR": "MCP",
+              "en": "MCP",
+              "es": "MCP"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "format": "thehappie-shell/vectors",
+  "version": 1,
+  "kind": "return-paths",
+  "description": "Console return paths (shell contract 2.1): a path is kept exactly when console.ReturnPath (is_return_path) keeps it, and every other value is dropped. Read by the console's Go tests and by web/test/shell.",
+  "cases": [
+    {
+      "name": "the console's root",
+      "path": "/",
+      "kept": true
+    },
+    {
+      "name": "the workspaces list",
+      "path": "/workspaces",
+      "kept": true
+    },
+    {
+      "name": "a trailing slash",
+      "path": "/workspaces/",
+      "kept": true
+    },
+    {
+      "name": "the profile under its old name",
+      "path": "/settings",
+      "kept": true
+    },
+    {
+      "name": "a section of a workspace",
+      "path": "/workspaces/01a08e0e-c546-7db3-9c44-e6352636d330/access",
+      "kept": true
+    },
+    {
+      "name": "an app's overview",
+      "path": "/workspaces/01a08e0e-c546-7db3-9c44-e6352636d330/apps/wappie",
+      "kept": true
+    },
+    {
+      "name": "the hop to an app's screen",
+      "path": "/workspaces/01a08e0e-c546-7db3-9c44-e6352636d330/apps/fakeproduct/numbers",
+      "kept": true
+    },
+    {
+      "name": "letters, digits, underscore and dash",
+      "path": "/a_b-C9/d",
+      "kept": true
+    },
+    {
+      "name": "a first segment that only starts with auth",
+      "path": "/authx",
+      "kept": true
+    },
+    {
+      "name": "a first segment that only starts with v1",
+      "path": "/v1x",
+      "kept": true
+    },
+    {
+      "name": "auth below another segment",
+      "path": "/workspaces/auth",
+      "kept": true
+    },
+    {
+      "name": "auth in capitals, which is another segment",
+      "path": "/Auth",
+      "kept": true
+    },
+    {
+      "name": "the longest path, 256 bytes",
+      "path": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kept": true
+    },
+    {
+      "name": "empty",
+      "path": "",
+      "kept": false
+    },
+    {
+      "name": "a relative path",
+      "path": "workspaces",
+      "kept": false
+    },
+    {
+      "name": "a protocol-relative address",
+      "path": "//evil.example",
+      "kept": false
+    },
+    {
+      "name": "a protocol-relative address with a path",
+      "path": "//evil.example/workspaces",
+      "kept": false
+    },
+    {
+      "name": "a backslash",
+      "path": "/\\evil.example",
+      "kept": false
+    },
+    {
+      "name": "encoded slashes",
+      "path": "/%2F%2Fevil.example",
+      "kept": false
+    },
+    {
+      "name": "an encoded dot segment",
+      "path": "/%2e%2e/x",
+      "kept": false
+    },
+    {
+      "name": "an absolute address",
+      "path": "https://evil.example/",
+      "kept": false
+    },
+    {
+      "name": "a script address",
+      "path": "javascript:alert(1)",
+      "kept": false
+    },
+    {
+      "name": "a dot-dot segment",
+      "path": "/a/../b",
+      "kept": false
+    },
+    {
+      "name": "a dot segment",
+      "path": "/a/./b",
+      "kept": false
+    },
+    {
+      "name": "a lone dot",
+      "path": "/.",
+      "kept": false
+    },
+    {
+      "name": "a lone dot-dot",
+      "path": "/..",
+      "kept": false
+    },
+    {
+      "name": "an empty segment",
+      "path": "/a//b",
+      "kept": false
+    },
+    {
+      "name": "a query",
+      "path": "/a?x=1",
+      "kept": false
+    },
+    {
+      "name": "a query carrying another return",
+      "path": "/workspaces?return=/x",
+      "kept": false
+    },
+    {
+      "name": "a fragment",
+      "path": "/a#x",
+      "kept": false
+    },
+    {
+      "name": "a space",
+      "path": "/a b",
+      "kept": false
+    },
+    {
+      "name": "a leading space",
+      "path": " /a",
+      "kept": false
+    },
+    {
+      "name": "a newline",
+      "path": "/a\nb",
+      "kept": false
+    },
+    {
+      "name": "a tab",
+      "path": "/a\tb",
+      "kept": false
+    },
+    {
+      "name": "a NUL",
+      "path": "/a\u0000b",
+      "kept": false
+    },
+    {
+      "name": "a letter outside ASCII",
+      "path": "/\u00e9",
+      "kept": false
+    },
+    {
+      "name": "a template placeholder",
+      "path": "/workspaces/{workspace}",
+      "kept": false
+    },
+    {
+      "name": "the sign-in",
+      "path": "/auth",
+      "kept": false
+    },
+    {
+      "name": "the sign-in with a trailing slash",
+      "path": "/auth/",
+      "kept": false
+    },
+    {
+      "name": "below the sign-in",
+      "path": "/auth/login",
+      "kept": false
+    },
+    {
+      "name": "the callback",
+      "path": "/auth/callback",
+      "kept": false
+    },
+    {
+      "name": "the API",
+      "path": "/v1",
+      "kept": false
+    },
+    {
+      "name": "the API with a trailing slash",
+      "path": "/v1/",
+      "kept": false
+    },
+    {
+      "name": "below the API",
+      "path": "/v1/session",
+      "kept": false
+    },
+    {
+      "name": "the shell's data",
+      "path": "/v1/shell",
+      "kept": false
+    },
+    {
+      "name": "one byte over the longest",
+      "path": "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kept": false
+    }
+  ]
+}

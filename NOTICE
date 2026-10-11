@@ -1,0 +1,15 @@
+The Happie Co shell
+Copyright 2026 The Happie Co OÜ and contributors.
+
+The code is licensed under the Apache License, Version 2.0 (see LICENSE).
+It is published from The Happie Co platform (github.com/thehappieco/platform)
+at commit 5533f5823769f02d5d1a057653b16c689d1a53ba: web/shared/shell, and the fixtures of testdata/shell/v1.
+
+The names "the happie co.", "wappie.", "mailie.", "vaultie.", "authie.",
+"sophie." and "nøva.", their symbols, their lettering and the drawings
+generated from the owner's brand files (src/brand/marks.ts, src/brand/marks.css
+and the components that draw them) are trademarks of The Happie Co OÜ. They
+are not licensed under the Apache License: they may be used only to draw The
+Happie Co's own console and apps.
+
+The shell imports Vue (MIT), which the app provides.

@@ -1,0 +1,196 @@
+/* The Happie Co's shared look, version 2 (shell contract 3.1): the pattern
+   of Wappie's console (neutral greys, a white side column and header,
+   bordered cards, no shadows), with each app in one color and its shades
+   (owner, 2026-10-09). The console's color is The Happie Co's indigo; an
+   app's page takes its own (a .thc-tone-<color> class, which the shell puts
+   on its root for an app's pages). No yellow, and no second accent.
+
+   The tone of a page is three tokens: --thc-tone (text, borders and
+   filled controls), --thc-tone-tint (the soft background of a current or
+   chosen item) and --thc-on-tone (text on a filled control). Each app color
+   has the three, per theme; the brand colors themselves (--thc-app-*) are
+   the letter badges' fills, the same in both themes, each with a white
+   letter. --thc-brand-ink is the company lettering's color: its registered
+   indigo, or white on dark pages (the kit's two lettering colors).
+   --thc-field-line outlines a text field or a select at 3:1 against the
+   page and the cards (WCAG 1.4.11); --thc-line is for dividers only.
+
+   Light by default; data-theme="dark" on <html> for dark; with
+   data-theme="system" or none, the system's scheme. The dark palette is
+   written twice, once for each way to reach it. */
+
+:root {
+  --thc-bg: #f0f1f5;
+  --thc-surface: #ffffff;
+  --thc-raised: #ffffff;
+  --thc-hover: #f4f5f8;
+  --thc-active: #e9ebf1;
+  --thc-input: #ffffff;
+  --thc-text: #14172e;
+  --thc-text-soft: #2f3352;
+  --thc-muted: #5d6280;
+  --thc-line: #dcdde4;
+  --thc-field-line: #858aa2;
+  --thc-danger: #b4232a;
+  --thc-danger-bg: #fcecec;
+  --thc-brand-ink: #242b5e;
+  --thc-shadow-pop: 0 12px 32px rgb(20 23 46 / 0.16);
+  --thc-backdrop: rgb(20 23 46 / 0.42);
+  --thc-tone-indigo: #242b5e;
+  --thc-tint-indigo: #eaebf5;
+  --thc-on-indigo: #ffffff;
+  --thc-tone-green: #137659;
+  --thc-tint-green: #e6f3ee;
+  --thc-on-green: #ffffff;
+  --thc-tone-rust: #b24b1e;
+  --thc-tint-rust: #f8ebe5;
+  --thc-on-rust: #ffffff;
+  --thc-tone-violet: #7040a0;
+  --thc-tint-violet: #f1ebf7;
+  --thc-on-violet: #ffffff;
+  --thc-tone-blue: #176b80;
+  --thc-tint-blue: #e5f0f3;
+  --thc-on-blue: #ffffff;
+  --thc-app-green: #137659;
+  --thc-app-rust: #b24b1e;
+  --thc-app-violet: #7040a0;
+  --thc-app-blue: #176b80;
+  --thc-app-indigo: #242b5e;
+  --thc-app-letter: #ffffff;
+  --thc-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --thc-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --thc-text-size: 0.9375rem;
+  --thc-text-size-sm: 0.8125rem;
+  --thc-text-size-xs: 0.75rem;
+  --thc-line-height: 1.45;
+  --thc-heading-line-height: 1.2;
+  --thc-h1-size: 1.5625rem;
+  --thc-h2-size: 1.0625rem;
+  --thc-h3-size: 0.9375rem;
+  --thc-input-size: max(1rem, 16px);
+  --thc-radius-sm: 8px;
+  --thc-radius-nav: 9px;
+  --thc-radius-md: 12px;
+  --thc-radius-pill: 999px;
+  --thc-space-1: 0.25rem;
+  --thc-space-2: 0.5rem;
+  --thc-space-3: 0.75rem;
+  --thc-space-4: 1rem;
+  --thc-space-5: 1.25rem;
+  --thc-space-6: 2rem;
+  --thc-focus-width: 2px;
+  --thc-target: 44px;
+  --thc-control: 40px;
+  --thc-side-width: 256px;
+  color-scheme: light dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --thc-bg: #10121b;
+  --thc-surface: #10121b;
+  --thc-raised: #1b1e2d;
+  --thc-hover: #24283c;
+  --thc-active: #272b42;
+  --thc-input: #272b42;
+  --thc-text: #e7e8f0;
+  --thc-text-soft: #c9cbdb;
+  --thc-muted: #959ab4;
+  --thc-line: #262a3e;
+  --thc-field-line: #666b8a;
+  --thc-danger: #ff8a8e;
+  --thc-danger-bg: #3b1d23;
+  --thc-brand-ink: #ffffff;
+  --thc-shadow-pop: 0 12px 32px rgb(0 0 0 / 0.45);
+  --thc-backdrop: rgb(0 0 0 / 0.55);
+  --thc-tone-indigo: #b3b9f2;
+  --thc-tint-indigo: #252a4f;
+  --thc-on-indigo: #10121b;
+  --thc-tone-green: #52d4ae;
+  --thc-tint-green: #133129;
+  --thc-on-green: #0b1f19;
+  --thc-tone-rust: #f3a27e;
+  --thc-tint-rust: #3d2519;
+  --thc-on-rust: #241208;
+  --thc-tone-violet: #cfaef2;
+  --thc-tint-violet: #31254a;
+  --thc-on-violet: #1c1029;
+  --thc-tone-blue: #6fcbe0;
+  --thc-tint-blue: #14353e;
+  --thc-on-blue: #08191e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --thc-bg: #10121b;
+    --thc-surface: #10121b;
+    --thc-raised: #1b1e2d;
+    --thc-hover: #24283c;
+    --thc-active: #272b42;
+    --thc-input: #272b42;
+    --thc-text: #e7e8f0;
+    --thc-text-soft: #c9cbdb;
+    --thc-muted: #959ab4;
+    --thc-line: #262a3e;
+    --thc-field-line: #666b8a;
+    --thc-danger: #ff8a8e;
+    --thc-danger-bg: #3b1d23;
+    --thc-brand-ink: #ffffff;
+    --thc-shadow-pop: 0 12px 32px rgb(0 0 0 / 0.45);
+    --thc-backdrop: rgb(0 0 0 / 0.55);
+    --thc-tone-indigo: #b3b9f2;
+    --thc-tint-indigo: #252a4f;
+    --thc-on-indigo: #10121b;
+    --thc-tone-green: #52d4ae;
+    --thc-tint-green: #133129;
+    --thc-on-green: #0b1f19;
+    --thc-tone-rust: #f3a27e;
+    --thc-tint-rust: #3d2519;
+    --thc-on-rust: #241208;
+    --thc-tone-violet: #cfaef2;
+    --thc-tint-violet: #31254a;
+    --thc-on-violet: #1c1029;
+    --thc-tone-blue: #6fcbe0;
+    --thc-tint-blue: #14353e;
+    --thc-on-blue: #08191e;
+  }
+}
+
+/* The tone of a page: the console's indigo on :root, or an app's color on
+   whatever element carries the class (the shell's root for an app's pages).
+   Each line is resolved where the class is, so the theme's values apply. */
+
+:root,
+.thc-tone-indigo {
+  --thc-tone: var(--thc-tone-indigo);
+  --thc-tone-tint: var(--thc-tint-indigo);
+  --thc-on-tone: var(--thc-on-indigo);
+}
+
+.thc-tone-green {
+  --thc-tone: var(--thc-tone-green);
+  --thc-tone-tint: var(--thc-tint-green);
+  --thc-on-tone: var(--thc-on-green);
+}
+
+.thc-tone-rust {
+  --thc-tone: var(--thc-tone-rust);
+  --thc-tone-tint: var(--thc-tint-rust);
+  --thc-on-tone: var(--thc-on-rust);
+}
+
+.thc-tone-violet {
+  --thc-tone: var(--thc-tone-violet);
+  --thc-tone-tint: var(--thc-tint-violet);
+  --thc-on-tone: var(--thc-on-violet);
+}
+
+.thc-tone-blue {
+  --thc-tone: var(--thc-tone-blue);
+  --thc-tone-tint: var(--thc-tint-blue);
+  --thc-on-tone: var(--thc-on-blue);
+}
