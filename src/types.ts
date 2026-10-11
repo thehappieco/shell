@@ -105,7 +105,11 @@ export interface ShellFallbackScreen {
   href: string
 }
 
-/** ShellFallback is an app's own menu, drawn when the console has no data for it. */
+/**
+ * ShellFallback is an app's own menu, drawn when the console answers
+ * without data for it (signed out, not answering, another account). While
+ * the data loads the shell draws only its mark and name, in the header.
+ */
 export interface ShellFallback {
   app: string
   name: string

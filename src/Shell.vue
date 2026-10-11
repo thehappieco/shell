@@ -2,7 +2,11 @@
 // ThcShell: the side menu, the header and the look that the console and
 // every app draw (decision 0033, shell contract 3). The console draws it
 // around its own pages; an app around its settings screens, on its own
-// origin. What it draws is menu.ts's, from the props alone.
+// origin. What it draws is menu.ts's, from the props alone. A host draws it
+// from its page's first frame: while the data loads (result null) the side
+// column holds the brand alone and the header the app's mark and name, and
+// the same component then fills in, without drawing again what it already
+// shows.
 //
 // The rules it enforces:
 //   - every link is a plain <a href>: no window.open, no postMessage, no
@@ -53,7 +57,7 @@ const props = withDefaults(
   defineProps<{
     /** The host's configured console origin; every console link uses it. */
     consoleOrigin: string
-    /** null while loading. */
+    /** null while loading: the column draws the brand alone, and the header as without data. */
     result: ShellResult | null
     place: ShellPlace
     /** The current workspace, or null on account pages. */
@@ -62,7 +66,7 @@ const props = withDefaults(
     locale: Locale
     /** The app session's sub: apps pass it, the console does not. */
     subject?: string
-    /** The app's own menu, drawn without data. */
+    /** The app's own menu, drawn without data; while loading, only its mark and name, in the header. */
     fallback?: ShellFallback
     /** An already-checked console path: "Voltar ao console" goes there. */
     returnPath?: string | null

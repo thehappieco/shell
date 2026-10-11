@@ -10,14 +10,22 @@
 //     to Minha conta, and, for an app, its tabs: the overview,
 //     the console's AI tab, then each screen the person's role reaches, or
 //     one tab that opens the app's own page while it is not in the shell;
+//   - while the data loads (result null): a quiet column, the brand alone,
+//     with no selector, group, profile or foot, so the column fills once
+//     when the data arrives rather than drawing the app's own links and
+//     swapping them for the console's; the header keeps the app's mark and
+//     name and the host's title, as without data. With no fallback (the
+//     console's pages of an app), a product of the kit named by the place
+//     is drawn as its symbol and written name, from the kit alone;
 //   - without data (signed out, the console not answering, or another
 //     person's console): the app's own menu, a notice and one link.
 // A link is current as the page shown (aria-current="page") only when it
 // leads to that page; the app's entry while one of its screens shows, and
 // the workspace on an account page, are where the person is ("true").
-// Every href is built by paths.ts; every word is the data's or i18n.ts's.
+// Every href is built by paths.ts; every word is the data's, i18n.ts's, or,
+// while loading, a product of the kit's own written name (brand/marks.ts).
 
-import { PRODUCT_BRAND_IDS, type ProductBrandId } from './brand/marks.js'
+import { NAMES, PRODUCT_BRAND_IDS, type ProductBrandId } from './brand/marks.js'
 import { type ShellKey, localText, shellText } from './i18n.js'
 import { APP_AI_TAB, checkReturnPath, consoleURL, hopPath, screenURL, signInURL, signOutURL, visibleScreens } from './paths.js'
 import type {
@@ -117,6 +125,11 @@ export interface ProfileLink {
 }
 
 export interface MenuModel {
+  /**
+   * While the shell's data loads: the column draws the brand alone, with
+   * no selector, group, profile or foot (the host's menu-footer included).
+   */
+  loading: boolean
   brandHref: string
   brandLabel: string
   navLabel: string
@@ -208,7 +221,10 @@ export function buildView(input: ShellInput): ShellView {
   const tx = (k: ShellKey, p?: Readonly<Record<string, string>>) => shellText(lang, k, p)
   const words = { skip: tx('skip'), menu: tx('menu'), closeMenu: tx('closeMenu'), newTab: tx('newTab') }
   const back = backLink(input, tx)
-  const built = mode === 'ready' && data !== null ? readyView(input, data, lang, tx, back) : fallbackView(input, mode, lang, tx, back)
+  let built: { menu: MenuModel; head: HeadModel }
+  if (mode === 'ready' && data !== null) built = readyView(input, data, lang, tx, back)
+  else if (mode === 'loading') built = loadingView(input, tx, back)
+  else built = fallbackView(input, mode, lang, tx, back)
   return { mode, lang, words, ...built, tone: built.head.app?.color ?? 'indigo' }
 }
 
@@ -360,6 +376,7 @@ function readyView(
 
   return {
     menu: {
+      loading: false,
       brandHref: `${origin}${menu.workspaces_path}`,
       brandLabel: tx('home'),
       navLabel: tx('nav'),
@@ -385,6 +402,81 @@ function readyView(
 
 function screenTab(s: ShellScreen, href: string, current: boolean, lang: Locale): HeadLink {
   return { id: s.id, href, label: localText(s.title, lang), current, newTab: false, note: null }
+}
+
+/**
+ * fallbackHead is the header without data: the app's own mark and name
+ * (the fallback's), its screen's title or the host's, and the crumb from
+ * "Console"; mark and name stand in for the fallback's when the loading
+ * view draws one of its own.
+ */
+function fallbackHead(
+  input: ShellInput,
+  tx: Tx,
+  back: HeadModel['back'],
+  notice: HeadModel['notice'],
+  own: { mark: AppMark; name: string } | null = null,
+): HeadModel {
+  const place = input.place
+  const fb = input.fallback ?? null
+  const screenId = place.kind === 'app' ? place.screen : null
+  const screen = fb?.screens.find(s => s.id === screenId) ?? null
+  let title = screen?.title ?? fb?.name ?? own?.name ?? tx('brand')
+  if (input.title !== undefined && input.title !== null && input.title !== '') title = input.title
+  let app: AppMark | null = null
+  if (fb !== null) app = { letter: fb.letter, color: fb.color, brand: appBrand(fb.app) }
+  else if (own !== null) app = own.mark
+  return {
+    crumbLabel: tx('breadcrumb'),
+    crumb: fb === null ? [tx('brand')] : [tx('brand'), fb.name],
+    title,
+    app,
+    tabsLabel: '',
+    tabs: [],
+    back,
+    notice,
+    appearance: null,
+    controls: input.controls === true ? { theme: input.theme ?? 'system', locale: input.locale } : null,
+  }
+}
+
+/**
+ * placeMark is the mark and name of the app a page is in, drawn without
+ * data: a product of the kit that the place names, as the kit draws and
+ * writes it (never a value of the data's), in the console's tone until the
+ * data names the app's color. Any other place has none.
+ */
+function placeMark(place: ShellPlace): { mark: AppMark; name: string } | null {
+  if (place.kind !== 'app') return null
+  const brand = appBrand(place.app)
+  if (brand === null) return null
+  const name = NAMES[brand].label
+  return { mark: { letter: Array.from(name)[0]?.toLocaleUpperCase() ?? '', color: 'indigo', brand }, name }
+}
+
+/**
+ * loadingView is what the shell draws while its data loads: the brand
+ * alone in the column, and the header without data. No fallback link is
+ * drawn, since the console's menu may replace it a moment later; the
+ * fallback's mark and name stay in the header, where the data draws the
+ * same. A host with no fallback (the console, on its pages of an app) gets
+ * the mark and name of the product of the kit its place names.
+ */
+function loadingView(input: ShellInput, tx: Tx, back: HeadModel['back']): { menu: MenuModel; head: HeadModel } {
+  const own = input.fallback === undefined ? placeMark(input.place) : null
+  return {
+    menu: {
+      loading: true,
+      brandHref: `${input.consoleOrigin}/`,
+      brandLabel: tx('home'),
+      navLabel: tx('nav'),
+      selector: null,
+      groups: [],
+      profile: null,
+      signOut: null,
+    },
+    head: fallbackHead(input, tx, back, null, own),
+  }
 }
 
 function fallbackView(
@@ -418,9 +510,6 @@ function fallbackView(
             })),
           },
         ]
-  const screen = fb?.screens.find(s => s.id === screenId) ?? null
-  let title = screen?.title ?? fb?.name ?? tx('brand')
-  if (input.title !== undefined && input.title !== null && input.title !== '') title = input.title
 
   let notice: HeadModel['notice'] = null
   if (mode === 'signed-out') {
@@ -432,6 +521,7 @@ function fallbackView(
 
   return {
     menu: {
+      loading: false,
       brandHref: `${origin}/`,
       brandLabel: tx('home'),
       navLabel: tx('nav'),
@@ -440,17 +530,6 @@ function fallbackView(
       profile: null,
       signOut: null,
     },
-    head: {
-      crumbLabel: tx('breadcrumb'),
-      crumb: fb === null ? [tx('brand')] : [tx('brand'), fb.name],
-      title,
-      app: fb === null ? null : { letter: fb.letter, color: fb.color, brand: appBrand(fb.app) },
-      tabsLabel: '',
-      tabs: [],
-      back,
-      notice,
-      appearance: null,
-      controls: input.controls === true ? { theme: input.theme ?? 'system', locale: input.locale } : null,
-    },
+    head: fallbackHead(input, tx, back, notice),
   }
 }
