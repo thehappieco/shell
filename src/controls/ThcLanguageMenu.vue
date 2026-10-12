@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // The page's language as a menu button (design 2026-10-10, 4.1), on every
 // screen: the shell's header, the console's pages outside it, id.'s header,
-// and, as a field, My account.
+// and, as a field, My account; and, as a list, the shell's account panel
+// under 900 px (shell 1.3.0).
 //
 // The button shows the current language's flag (ThcFlag.vue) and a small
 // chevron; the field variant shows its name too. A click opens a menu of
@@ -21,6 +22,12 @@
 //     focus moves on; a choice closes it and returns focus to the button;
 //   - a click outside closes it: one capture listener, added only while the
 //     menu is open (as the shell's workspace selector does).
+//
+// The list variant draws the three languages at once, with no menu: a
+// radio group of their flags and names, each in its own lang, with one tab
+// stop on the chosen language; a click, or the arrow keys from the focused
+// one, ask for a language, and focus follows the language the host shows
+// once it has answered (as the theme's segmented variant does).
 //
 // The rules it enforces: it only asks (change) and shows what the host
 // passes back (value): the host applies and saves. Vue only: no storage, no
@@ -43,7 +50,7 @@ const props = withDefaults(
     value: Locale
     /** The language of the control's own words. */
     locale: Locale
-    variant?: 'menu' | 'field'
+    variant?: 'menu' | 'field' | 'list'
   }>(),
   { variant: 'menu' },
 )
@@ -54,6 +61,7 @@ const open = ref(false)
 const root = ref<HTMLElement | null>(null)
 const button = ref<HTMLButtonElement | null>(null)
 const menu = ref<HTMLElement | null>(null)
+const list = ref<HTMLElement | null>(null)
 
 const word = computed(() => shellText(props.locale, 'language'))
 const title = computed(() => `${word.value}: ${LOCALE_NAMES[props.value]}`)
@@ -151,6 +159,40 @@ function onOutside(event: Event): void {
   if (root.value !== null && !root.value.contains(event.target as Node)) open.value = false
 }
 
+/** pick asks for a language from the list variant: the host shows it, or does not. */
+function pick(l: Locale): void {
+  if (l !== props.value) emit('change', l)
+}
+
+const STEPS: Readonly<Record<string, number>> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
+
+/** onListKey moves from the focused language to the next or previous one, then puts focus on the language the host shows. */
+async function onListKey(event: KeyboardEvent): Promise<void> {
+  const step = STEPS[event.key]
+  if (step === undefined) return
+  event.preventDefault()
+  const from = (event.target as HTMLElement | null)?.dataset?.['value']
+  const at = LOCALES.indexOf(isLocale(from) ? from : props.value)
+  const to = LOCALES[(at + step + LOCALES.length) % LOCALES.length]
+  if (to !== undefined) pick(to)
+  await nextTick()
+  focusChecked()
+}
+
+/** focusChecked puts focus on the language the host shows, while focus is in the list. */
+function focusChecked(): void {
+  const el = list.value
+  if (el === null || !el.contains(globalThis.document?.activeElement ?? null)) return
+  el.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
+}
+// A host may show the change after a wait of its own (the console decides
+// it once its session is known): focus follows the value when it arrives.
+watch(
+  () => props.value,
+  () => focusChecked(),
+  { flush: 'post' },
+)
+
 watch(open, now => {
   if (now) document.addEventListener('click', onOutside, true)
   else document.removeEventListener('click', onOutside, true)
@@ -159,7 +201,26 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
 </script>
 
 <template>
-  <div ref="root" class="thc-shell-ctl-lang" :class="`thc-shell-ctl-lang-${variant}`" @focusout="onFocusOut">
+  <div v-if="variant === 'list'" ref="list" class="thc-shell-ctl-lang-list" role="radiogroup" :aria-label="word" :data-value="value" v-bind="$attrs" @keydown="onListKey">
+    <button
+      v-for="l in LOCALES"
+      :key="l"
+      type="button"
+      role="radio"
+      class="thc-shell-ctl-item thc-shell-ctl-lang-option"
+      :aria-checked="l === value ? 'true' : 'false'"
+      :tabindex="l === value ? 0 : -1"
+      :lang="l"
+      data-test="language-option"
+      :data-value="l"
+      @click="pick(l)"
+    >
+      <ThcFlag :locale="l" :size="22" />
+      <span class="thc-shell-ctl-item-name">{{ LOCALE_NAMES[l] }}</span>
+      <svg v-if="l === value" class="thc-shell-ctl-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12l5 5 9-10" /></svg>
+    </button>
+  </div>
+  <div v-else ref="root" class="thc-shell-ctl-lang" :class="`thc-shell-ctl-lang-${variant}`" @focusout="onFocusOut">
     <button
       :id="`${uid}-button`"
       ref="button"
@@ -377,6 +438,28 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
 
 .thc-shell-ctl-check {
   margin-left: auto;
+}
+
+/* As a list (the shell's account panel): the menu's items, always there. */
+.thc-shell-ctl-lang-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thc-shell-ctl-lang-option {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.thc-shell-ctl-lang-option[aria-checked='true'] {
+  background: var(--thc-tone-tint);
 }
 
 .thc-shell-ctl-pop-enter-active,

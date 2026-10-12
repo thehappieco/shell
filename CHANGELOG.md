@@ -2,6 +2,18 @@
 
 Published to `github.com/thehappieco/shell` by `scripts/shell-package.sh`, which copies this file and refuses a version it does not name.
 
+## 1.3.0 (2026-10-11)
+
+- **No breadcrumb.** The header draws the `h1` alone; the `h1` and the menu's current link say where the person is. The words `breadcrumb` ("Você está em") are gone from `SHELL_TEXT`; nothing else changes for a host.
+- **The title draws no focus ring.** It still takes focus by script at each page (`tabindex="-1"`, for screen readers); no `:focus` or `:focus-visible` outline is drawn on it. A host's own page titles that take scripted focus should do the same (the console's and id.'s do).
+- **An app's tabs scroll sideways.** One row that scrolls when it overflows (touch, trackpad, Tab), and only the row: no scrollbar, an edge fade where the browser supports scroll-driven animations, and the current tab scrolled into view when the shell is drawn and when it changes.
+- **Under 900 px, an account button.** The header's theme toggle, language menu and "Aparência e idioma" are drawn at 900 px and wider only. Below, the person's avatar at the right is a button that opens a panel: the profile (to Minha conta), the workspace shown (to every workspace, or "Escolher espaço"), then "Tema" and "Idioma" for a host that passes both `changeTheme` and `changeLocale`, or "Aparência e idioma" for any other. Escape, a click outside, focus leaving, a link or another page close it. Without data it shows nothing of the console's person: the theme and the language alone for a host with both handlers, else no button. The header's `data-test="shell-head-profile"` link is gone: the button is `shell-account-button`, its panel `shell-account-panel`. At 900 px and wider nothing changes.
+- **A loading mark while the browser follows a link.** When the person follows one of the shell's links that the browser navigates (not one the host routes, a new tab, a modified click or a prevented one), the content area shows a spinner and "Carregando…" (a `role="status"` region; the page stays mounted, hidden, with `aria-busy="true"`) until the document goes; the menu and the header stay. A page restored from the back/forward cache drops it. The shell adds two window listeners for it, the click's end and `pageshow`, both removed on unmount. An app whose screen can refuse to leave (`beforeunload`) keeps the mark until the next navigation.
+- `ThcLanguageMenu` gains `variant="list"`: the three languages at once as a radio group (one tab stop, the arrow keys ask for the next), the account panel's. Additive.
+- "Todos os espaços" in the workspace selector has `aria-current="page"` on the workspaces' page.
+- New words in `SHELL_TEXT`: `loading` ("Carregando…", "Loading…", "Cargando…").
+- Update an app's own tests that read `shell-crumb` or `shell-head-profile`.
+
 ## 1.2.0 (2026-10-11)
 
 - While the shell's data loads (`result` is `null`), the side column draws the brand alone: no fallback link, no workspace selector, group, profile or foot (the host's `menu-footer` included), in the column and in the drawer. The column then fills once when the data arrives, under the same brand element, so its symbol does not play again, instead of drawing the app's own links and swapping them for the console's half a second later. The header is unchanged: the fallback's mark and name, the screen's title or the host's `title`, and `Console / {app}`.

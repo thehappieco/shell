@@ -132,9 +132,14 @@ function follow(event: MouseEvent, href: string): void {
               </a>
             </li>
           </ul>
-          <a class="thc-shell-ws thc-shell-ws-all" :href="model.selector.allHref" data-test="shell-all-workspaces" @click="follow($event, model.selector.allHref)">{{
-            model.selector.allLabel
-          }}</a>
+          <a
+            class="thc-shell-ws thc-shell-ws-all"
+            :href="model.selector.allHref"
+            :aria-current="model.selector.allCurrent ? 'page' : undefined"
+            data-test="shell-all-workspaces"
+            @click="follow($event, model.selector.allHref)"
+            >{{ model.selector.allLabel }}</a
+          >
         </div>
       </div>
 

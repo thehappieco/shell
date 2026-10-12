@@ -4,12 +4,17 @@
 //   - with data: the brand, the workspace selector, the groups Espaço (the
 //     workspace's sections), Da conta (the account's) and Apps (one entry
 //     per app, to its overview), the profile and "Sair", and a header with
-//     the breadcrumb (Console / {workspace, or Sua conta} / {page}), the
-//     title, the theme toggle and the language menu when the host can keep
-//     a change (it passes both handlers), else "Aparência e idioma", a link
-//     to Minha conta, and, for an app, its tabs: the overview,
-//     the console's AI tab, then each screen the person's role reaches, or
-//     one tab that opens the app's own page while it is not in the shell;
+//     the title (the h1 and the menu's current link say where the person
+//     is: there is no breadcrumb since 1.3.0), the theme toggle and the
+//     language menu when the host can keep a change (it passes both
+//     handlers), else "Aparência e idioma", a link to Minha conta, and, for
+//     an app, its tabs: the overview, the console's AI tab, then each
+//     screen the person's role reaches, or one tab that opens the app's own
+//     page while it is not in the shell;
+//   - the account button's panel, under 900 px (since 1.3.0): the profile,
+//     the workspace shown (to every workspace), then the theme and the
+//     language, or "Aparência e idioma"; without data, the theme and the
+//     language alone when the host passes both handlers, else no button;
 //   - while the data loads (result null): a quiet column, the brand alone,
 //     with no selector, group, profile or foot, so the column fills once
 //     when the data arrives rather than drawing the app's own links and
@@ -114,6 +119,8 @@ export interface WorkspaceSelector {
   items: WorkspaceItem[]
   allHref: string
   allLabel: string
+  /** Whether every workspace's page (workspaces_path) is the page shown. */
+  allCurrent: boolean
 }
 
 export interface ProfileLink {
@@ -150,9 +157,28 @@ export interface HeadLink {
   note: string | null
 }
 
+/**
+ * AccountPanel is the account button's panel under 900 px, where the
+ * header's theme and language controls do not fit: the profile, the
+ * workspace shown, then the theme and the language (HeadModel.controls) or
+ * "Aparência e idioma" (HeadModel.appearance).
+ */
+export interface AccountPanel {
+  /** The button's name: "Sua conta", or "Aparência e idioma" when the panel holds only those. */
+  label: string
+  /** The button's avatar: the person's initials, or null for the neutral icon. */
+  initials: string | null
+  /** Whether Minha conta is the page shown: the button is highlighted. */
+  current: boolean
+  /** The account row, a link to Minha conta; null without data. */
+  profile: ProfileLink | null
+  /** The workspace row: the workspace shown, or "Escolher espaço", a link to every workspace; null without data. */
+  workspace: { label: string; switchLabel: string; shown: WorkspaceItem | null; chooseLabel: string; href: string; current: boolean } | null
+  themeLabel: string
+  languageLabel: string
+}
+
 export interface HeadModel {
-  crumbLabel: string
-  crumb: string[]
   title: string
   app: AppMark | null
   tabsLabel: string
@@ -167,7 +193,12 @@ export interface HeadModel {
    * or without data, "system" and the host's language.
    */
   controls: { theme: Theme; locale: Locale } | null
+  /** The account button under 900 px: null when it has nothing to show (no data and no controls). */
+  account: AccountPanel | null
 }
+
+/** HeadParts is the header before its account panel, which buildView adds from the menu and the controls. */
+type HeadParts = Omit<HeadModel, 'account'>
 
 export type ShellMode = 'loading' | 'ready' | 'signed-out' | 'unavailable' | 'other-account'
 
@@ -179,7 +210,7 @@ export interface ShellView {
   /** The page's color: an app's own on its pages, else the console's indigo (tokens.css, .thc-tone-*). */
   tone: AppColor
   /** Words the component needs around the model. */
-  words: { skip: string; menu: string; closeMenu: string; newTab: string }
+  words: { skip: string; menu: string; closeMenu: string; newTab: string; loading: string }
 }
 
 export interface ShellInput {
@@ -219,13 +250,40 @@ export function buildView(input: ShellInput): ShellView {
   else mode = other ? 'other-account' : 'ready'
   const lang = mode === 'ready' && data !== null ? data.locale : input.locale
   const tx = (k: ShellKey, p?: Readonly<Record<string, string>>) => shellText(lang, k, p)
-  const words = { skip: tx('skip'), menu: tx('menu'), closeMenu: tx('closeMenu'), newTab: tx('newTab') }
+  const words = { skip: tx('skip'), menu: tx('menu'), closeMenu: tx('closeMenu'), newTab: tx('newTab'), loading: tx('loading') }
   const back = backLink(input, tx)
-  let built: { menu: MenuModel; head: HeadModel }
+  let built: { menu: MenuModel; head: HeadParts }
   if (mode === 'ready' && data !== null) built = readyView(input, data, lang, tx, back)
   else if (mode === 'loading') built = loadingView(input, tx, back)
   else built = fallbackView(input, mode, lang, tx, back)
-  return { mode, lang, words, ...built, tone: built.head.app?.color ?? 'indigo' }
+  const head: HeadModel = { ...built.head, account: accountPanel(built.menu, built.head, tx) }
+  return { mode, lang, words, menu: built.menu, head, tone: built.head.app?.color ?? 'indigo' }
+}
+
+/**
+ * accountPanel is what the account button shows under 900 px: with data,
+ * the person and the workspace, then the theme and the language or the
+ * link to Minha conta; without data (loading, signed out, the console not
+ * answering, another person's console) nothing of the console's person,
+ * only the theme and the language when the host can keep a change; else
+ * no button at all.
+ */
+function accountPanel(menu: MenuModel, head: HeadParts, tx: Tx): AccountPanel | null {
+  const profile = menu.profile
+  if (profile === null && head.controls === null) return null
+  const s = menu.selector
+  return {
+    label: profile === null ? tx('appearance') : tx('yourAccount'),
+    initials: profile?.initials ?? null,
+    current: profile?.current ?? false,
+    profile,
+    workspace:
+      profile === null || s === null
+        ? null
+        : { label: s.label, switchLabel: s.switchLabel, shown: s.shown, chooseLabel: s.chooseLabel, href: s.allHref, current: s.allCurrent },
+    themeLabel: tx('theme'),
+    languageLabel: tx('language'),
+  }
 }
 
 type Tx = (k: ShellKey, p?: Readonly<Record<string, string>>) => string
@@ -245,7 +303,7 @@ function readyView(
   lang: Locale,
   tx: Tx,
   back: HeadModel['back'],
-): { menu: MenuModel; head: HeadModel } {
+): { menu: MenuModel; head: HeadParts } {
   const origin = input.consoleOrigin
   const place = input.place
   const { menu } = data
@@ -325,6 +383,7 @@ function readyView(
           items: data.workspaces.map(item),
           allHref: `${origin}${menu.workspaces_path}`,
           allLabel: tx('allWorkspaces'),
+          allCurrent: place.kind === 'console' && place.section === 'workspaces',
         }
 
   const profile: ProfileLink = {
@@ -346,11 +405,6 @@ function readyView(
   if (screen !== null) title = localText(screen.title, lang)
   else if (aiTab && app !== null) title = tx('aiIn', { app: app.name })
   if (input.title !== undefined && input.title !== null && input.title !== '') title = input.title
-  // Console / {workspace, or Sua conta on an account page} / {page}.
-  const crumb = [tx('brand')]
-  if (onAccount) crumb.push(tx('yourAccount'))
-  else if (current !== null) crumb.push(workspaceName(current, tx))
-  if (label !== tx('brand')) crumb.push(label)
 
   const tabs: HeadLink[] = []
   if (app !== null) {
@@ -386,8 +440,6 @@ function readyView(
       signOut: { href: signOutURL(origin), label: tx('signOut') },
     },
     head: {
-      crumbLabel: tx('breadcrumb'),
-      crumb,
       title,
       app: app === null ? null : { letter: app.letter, color: app.color, brand: appBrand(app.id) },
       tabsLabel: app === null ? '' : tx('screensOf', { app: app.name }),
@@ -405,10 +457,11 @@ function screenTab(s: ShellScreen, href: string, current: boolean, lang: Locale)
 }
 
 /**
- * fallbackHead is the header without data: the app's own mark and name
- * (the fallback's), its screen's title or the host's, and the crumb from
- * "Console"; mark and name stand in for the fallback's when the loading
- * view draws one of its own.
+ * fallbackHead is the header without data: the app's own mark (the
+ * fallback's), and its screen's title or the host's. A product of the kit
+ * is also named there, by its written name; any other app only by its
+ * letter (since 1.3.0 there is no breadcrumb to name it). The mark stands in
+ * for the fallback's when the loading view draws one of its own.
  */
 function fallbackHead(
   input: ShellInput,
@@ -416,7 +469,7 @@ function fallbackHead(
   back: HeadModel['back'],
   notice: HeadModel['notice'],
   own: { mark: AppMark; name: string } | null = null,
-): HeadModel {
+): HeadParts {
   const place = input.place
   const fb = input.fallback ?? null
   const screenId = place.kind === 'app' ? place.screen : null
@@ -427,8 +480,6 @@ function fallbackHead(
   if (fb !== null) app = { letter: fb.letter, color: fb.color, brand: appBrand(fb.app) }
   else if (own !== null) app = own.mark
   return {
-    crumbLabel: tx('breadcrumb'),
-    crumb: fb === null ? [tx('brand')] : [tx('brand'), fb.name],
     title,
     app,
     tabsLabel: '',
@@ -458,11 +509,11 @@ function placeMark(place: ShellPlace): { mark: AppMark; name: string } | null {
  * loadingView is what the shell draws while its data loads: the brand
  * alone in the column, and the header without data. No fallback link is
  * drawn, since the console's menu may replace it a moment later; the
- * fallback's mark and name stay in the header, where the data draws the
- * same. A host with no fallback (the console, on its pages of an app) gets
+ * fallback's mark (and a kit product's written name) stays in the header,
+ * where the data draws the same. A host with no fallback (the console, on its pages of an app) gets
  * the mark and name of the product of the kit its place names.
  */
-function loadingView(input: ShellInput, tx: Tx, back: HeadModel['back']): { menu: MenuModel; head: HeadModel } {
+function loadingView(input: ShellInput, tx: Tx, back: HeadModel['back']): { menu: MenuModel; head: HeadParts } {
   const own = input.fallback === undefined ? placeMark(input.place) : null
   return {
     menu: {
@@ -485,7 +536,7 @@ function fallbackView(
   lang: Locale,
   tx: Tx,
   back: HeadModel['back'],
-): { menu: MenuModel; head: HeadModel } {
+): { menu: MenuModel; head: HeadParts } {
   const origin = input.consoleOrigin
   const place = input.place
   const fb = input.fallback ?? null

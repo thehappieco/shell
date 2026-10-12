@@ -24,7 +24,7 @@
 // under prefers-reduced-motion. Its words are the shell's (i18n.ts), in the
 // page's language (locale). Attributes the host passes (data-test, aria-busy,
 // aria-describedby, aria-labelledby) land on the button, or on the group.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { shellText } from '../i18n.js'
 import { type Locale, type Theme, THEMES } from '../types.js'
 import { nextTheme, prefersDark } from './cycle.js'
@@ -77,8 +77,22 @@ async function onGroupKey(event: KeyboardEvent): Promise<void> {
   const to = THEMES[(at + step + THEMES.length) % THEMES.length]
   if (to !== undefined) choose(to)
   await nextTick()
-  group.value?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
+  focusChecked()
 }
+
+/** focusChecked puts focus on the mode the host shows, while focus is in the group. */
+function focusChecked(): void {
+  const el = group.value
+  if (el === null || !el.contains(globalThis.document?.activeElement ?? null)) return
+  el.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
+}
+// A host may show the change after a wait of its own (the console decides
+// it once its session is known): focus follows the value when it arrives.
+watch(
+  () => props.value,
+  () => focusChecked(),
+  { flush: 'post' },
+)
 
 let scheme: MediaQueryList | null = null
 function onScheme(e: MediaQueryListEvent): void {

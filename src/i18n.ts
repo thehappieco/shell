@@ -42,7 +42,6 @@ const ptBR = {
   opensInApp: 'abre no app',
   newTab: '(abre em outra aba)',
   backToConsole: 'Voltar ao console',
-  breadcrumb: 'Você está em',
   signedOut: 'Entre no console para ver seus espaços e os outros apps.',
   signIn: 'Entrar no console',
   unavailable: 'O console não respondeu.',
@@ -56,6 +55,7 @@ const ptBR = {
   'theme.dark': 'Escuro',
   themeNow: 'Tema: {mode}. Mudar para {next}',
   language: 'Idioma',
+  loading: 'Carregando…',
 }
 
 export type ShellKey = keyof typeof ptBR
@@ -90,7 +90,6 @@ const en: ShellMessages = {
   opensInApp: 'opens in the app',
   newTab: '(opens in a new tab)',
   backToConsole: 'Back to the console',
-  breadcrumb: 'You are in',
   signedOut: 'Sign in to the console to see your workspaces and the other apps.',
   signIn: 'Sign in to the console',
   unavailable: 'The console did not answer.',
@@ -104,6 +103,7 @@ const en: ShellMessages = {
   'theme.dark': 'Dark',
   themeNow: 'Theme: {mode}. Switch to {next}',
   language: 'Language',
+  loading: 'Loading…',
 }
 
 const es: ShellMessages = {
@@ -135,7 +135,6 @@ const es: ShellMessages = {
   opensInApp: 'se abre en la app',
   newTab: '(se abre en otra pestaña)',
   backToConsole: 'Volver a la consola',
-  breadcrumb: 'Estás en',
   signedOut: 'Inicia sesión en la consola para ver tus espacios y las otras apps.',
   signIn: 'Iniciar sesión en la consola',
   unavailable: 'La consola no respondió.',
@@ -149,6 +148,7 @@ const es: ShellMessages = {
   'theme.dark': 'Oscuro',
   themeNow: 'Tema: {mode}. Cambiar a {next}',
   language: 'Idioma',
+  loading: 'Cargando…',
 }
 
 export const SHELL_TEXT: Readonly<Record<Locale, ShellMessages>> = Object.freeze({ 'pt-BR': ptBR, en, es })
