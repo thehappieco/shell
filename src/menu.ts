@@ -15,6 +15,12 @@
 //     the workspace shown (to every workspace), then the theme and the
 //     language, or "Aparência e idioma"; without data, the theme and the
 //     language alone when the host passes both handlers, else no button;
+//   - while the data loads with a kept answer the host passes (initial,
+//     since 1.4.0; decision 0047): the kept answer drawn as data, in the
+//     host's language, when it is for the host's console origin and, on an
+//     app, for the app session's own person (subject); read-only when the
+//     host says so (the console, until its fresh answer arrives): every link
+//     keeps its href but follows nothing, and the selector does not open;
 //   - while the data loads (result null): a quiet column, the brand alone,
 //     with no selector, group, profile or foot, so the column fills once
 //     when the data arrives rather than drawing the app's own links and
@@ -133,6 +139,11 @@ export interface ProfileLink {
 
 export interface MenuModel {
   /**
+   * The kept answer drawn read-only (since 1.4.0): every link keeps its
+   * href but follows nothing, and the workspace selector does not open.
+   */
+  readOnly: boolean
+  /**
    * While the shell's data loads: the column draws the brand alone, with
    * no selector, group, profile or foot (the host's menu-footer included).
    */
@@ -200,7 +211,12 @@ export interface HeadModel {
 /** HeadParts is the header before its account panel, which buildView adds from the menu and the controls. */
 type HeadParts = Omit<HeadModel, 'account'>
 
-export type ShellMode = 'loading' | 'ready' | 'signed-out' | 'unavailable' | 'other-account'
+/**
+ * ShellMode is what the shell draws from: the data (ready), a kept answer
+ * while the data loads (kept, since 1.4.0), nothing yet (loading), or no
+ * data (signed-out, unavailable, other-account).
+ */
+export type ShellMode = 'loading' | 'kept' | 'ready' | 'signed-out' | 'unavailable' | 'other-account'
 
 export interface ShellView {
   mode: ShellMode
@@ -209,6 +225,8 @@ export interface ShellView {
   head: HeadModel
   /** The page's color: an app's own on its pages, else the console's indigo (tokens.css, .thc-tone-*). */
   tone: AppColor
+  /** Whether a kept answer is drawn read-only (MenuModel.readOnly). */
+  readOnly: boolean
   /** Words the component needs around the model. */
   words: { skip: string; menu: string; closeMenu: string; newTab: string; loading: string }
 }
@@ -227,6 +245,15 @@ export interface ShellInput {
   controls?: boolean | undefined
   /** The host's theme before or without data, which the theme toggle shows then; "system" when absent. */
   theme?: Theme | undefined
+  /**
+   * The kept answer the host passes while result is null (decision 0047):
+   * drawn only when it is for consoleOrigin and, when subject is given, for
+   * that person; a host with its own menu (an app: fallback) gets it drawn
+   * only with a subject. A result that is not null replaces it.
+   */
+  initial?: ShellData | null | undefined
+  /** Whether a kept answer is drawn read-only (the console, until its fresh answer arrives). */
+  readOnly?: boolean | undefined
 }
 
 /** initials is up to two letters of a name, for an avatar: the first and last words' first letters. */
@@ -240,24 +267,44 @@ export function initials(name: string | null): string | null {
   return letter(first) + (last === undefined ? '' : letter(last))
 }
 
+/**
+ * keptData is the kept answer the shell may draw while the data loads: the
+ * host's initial, when it is for the host's console origin and for the
+ * app session's own person. A host with its own menu (an app) passes a
+ * subject for it to be drawn at all; the console passes neither.
+ */
+function keptData(input: ShellInput): ShellData | null {
+  const k = input.initial ?? null
+  if (input.result !== null || k === null || k.console_origin !== input.consoleOrigin) return null
+  if (input.subject !== undefined) return input.subject === k.sub ? k : null
+  return input.fallback === undefined ? k : null
+}
+
 /** buildView is everything the shell draws for its props. */
 export function buildView(input: ShellInput): ShellView {
-  const data = input.result?.status === 'ready' ? input.result.data : null
-  const other = data !== null && input.subject !== undefined && input.subject !== data.sub
+  const kept = keptData(input)
+  const data = input.result?.status === 'ready' ? input.result.data : kept
+  const other = input.result?.status === 'ready' && input.subject !== undefined && input.subject !== input.result.data.sub
   let mode: ShellMode
-  if (input.result === null) mode = 'loading'
+  if (input.result === null) mode = kept === null ? 'loading' : 'kept'
   else if (input.result.status !== 'ready') mode = input.result.status
   else mode = other ? 'other-account' : 'ready'
+  // A kept answer speaks the host's language, which the host set from it
+  // (an app) or remembers (the console): a choice made while signed out
+  // never disagrees with the menu.
   const lang = mode === 'ready' && data !== null ? data.locale : input.locale
   const tx = (k: ShellKey, p?: Readonly<Record<string, string>>) => shellText(lang, k, p)
   const words = { skip: tx('skip'), menu: tx('menu'), closeMenu: tx('closeMenu'), newTab: tx('newTab'), loading: tx('loading') }
   const back = backLink(input, tx)
   let built: { menu: MenuModel; head: HeadParts }
   if (mode === 'ready' && data !== null) built = readyView(input, data, lang, tx, back)
+  else if (mode === 'kept' && data !== null) built = readyView(input, data, lang, tx, back, { theme: input.theme ?? data.theme, locale: input.locale })
   else if (mode === 'loading') built = loadingView(input, tx, back)
   else built = fallbackView(input, mode, lang, tx, back)
-  const head: HeadModel = { ...built.head, account: accountPanel(built.menu, built.head, tx) }
-  return { mode, lang, words, menu: built.menu, head, tone: built.head.app?.color ?? 'indigo' }
+  const readOnly = mode === 'kept' && input.readOnly === true
+  const menu: MenuModel = { ...built.menu, readOnly }
+  const head: HeadModel = { ...built.head, account: accountPanel(menu, built.head, tx) }
+  return { mode, lang, words, menu, head, tone: built.head.app?.color ?? 'indigo', readOnly }
 }
 
 /**
@@ -297,12 +344,18 @@ function workspaceName(w: ShellWorkspace, tx: Tx): string {
   return w.kind === 'personal' || w.name === null ? tx('personal') : w.name
 }
 
+/**
+ * readyView is the shell drawn from data: the fresh answer, or a kept one,
+ * whose header controls show the host's theme and language (shown) rather
+ * than the kept ones.
+ */
 function readyView(
   input: ShellInput,
   data: ShellData,
   lang: Locale,
   tx: Tx,
   back: HeadModel['back'],
+  shown: { theme: Theme; locale: Locale } = { theme: data.theme, locale: data.locale },
 ): { menu: MenuModel; head: HeadParts } {
   const origin = input.consoleOrigin
   const place = input.place
@@ -430,6 +483,7 @@ function readyView(
 
   return {
     menu: {
+      readOnly: false,
       loading: false,
       brandHref: `${origin}${menu.workspaces_path}`,
       brandLabel: tx('home'),
@@ -447,7 +501,7 @@ function readyView(
       back,
       notice: null,
       appearance: input.controls === true ? null : { href: `${origin}${menu.profile.path}`, label: tx('appearance'), current: isSection(menu.profile) },
-      controls: input.controls === true ? { theme: data.theme, locale: data.locale } : null,
+      controls: input.controls === true ? shown : null,
     },
   }
 }
@@ -517,6 +571,7 @@ function loadingView(input: ShellInput, tx: Tx, back: HeadModel['back']): { menu
   const own = input.fallback === undefined ? placeMark(input.place) : null
   return {
     menu: {
+      readOnly: false,
       loading: true,
       brandHref: `${input.consoleOrigin}/`,
       brandLabel: tx('home'),
@@ -572,6 +627,7 @@ function fallbackView(
 
   return {
     menu: {
+      readOnly: false,
       loading: false,
       brandHref: `${origin}/`,
       brandLabel: tx('home'),

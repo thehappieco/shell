@@ -23,7 +23,10 @@
 // drawer, it would close the drawer too), and a click outside or following
 // a link closes it. Every entry is a plain link: following one is the
 // browser's navigation, or the host's for a link on its own origin
-// (Shell.vue decides, through the follow event).
+// (Shell.vue decides, through the follow event; "Sair" through the signOut
+// event, so the host's beforeSignOut runs first). While a kept answer is
+// drawn read-only (since 1.4.0) the selector's button says it is disabled
+// and does not open, and Shell.vue follows no link.
 import { onBeforeUnmount, ref, useId, watch } from 'vue'
 import ThcLockup from './brand/ThcLockup.vue'
 import ThcMark from './brand/ThcMark.vue'
@@ -31,7 +34,7 @@ import ThcName from './brand/ThcName.vue'
 import type { MenuModel } from './menu.js'
 
 defineProps<{ model: MenuModel; newTab: string }>()
-const emit = defineEmits<{ follow: [event: MouseEvent, href: string] }>()
+const emit = defineEmits<{ follow: [event: MouseEvent, href: string]; signOut: [event: MouseEvent, href: string] }>()
 
 const uid = useId()
 const open = ref(false)
@@ -61,6 +64,16 @@ function follow(event: MouseEvent, href: string): void {
   open.value = false
   emit('follow', event, href)
 }
+
+function signOut(event: MouseEvent, href: string): void {
+  open.value = false
+  emit('signOut', event, href)
+}
+
+/** toggle opens or closes the list, unless the kept answer is drawn read-only. */
+function toggle(readOnly: boolean): void {
+  open.value = readOnly ? false : !open.value
+}
 </script>
 
 <template>
@@ -86,8 +99,9 @@ function follow(event: MouseEvent, href: string): void {
           :aria-controls="`${uid}-ws-panel`"
           :aria-labelledby="`${uid}-ws-switch ${uid}-ws-name`"
           :aria-describedby="model.selector.shown ? `${uid}-ws-detail` : undefined"
+          :aria-disabled="model.readOnly ? 'true' : undefined"
           data-test="shell-workspace-button"
-          @click="open = !open"
+          @click="toggle(model.readOnly)"
         >
           <template v-if="model.selector.shown">
             <span class="thc-shell-ws-av" :class="model.selector.shown.personal ? 'thc-shell-ws-personal' : 'thc-shell-ws-team'" aria-hidden="true">{{
@@ -247,7 +261,7 @@ function follow(event: MouseEvent, href: string): void {
             class="thc-shell-link thc-shell-sign-out"
             :href="model.signOut.href"
             data-test="shell-sign-out"
-            @click="follow($event, model.signOut.href)"
+            @click="signOut($event, model.signOut.href)"
           >
             <svg class="thc-shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />

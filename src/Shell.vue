@@ -67,6 +67,20 @@
 //     without data, the host's theme and locale), which the host patches
 //     when it shows a change, and again if it puts one back.
 //
+//   - a kept answer (initial, since 1.4.0; decision 0047) is drawn while
+//     the data loads, as the data would be, when it is for the host's
+//     console origin and for the app session's own person (menu.ts); the
+//     shell stores nothing itself: the host reads, keeps and erases it
+//     (kept.ts's helpers). Read-only (the console, until its fresh answer
+//     arrives): every link keeps its href, but a click on it follows nothing
+//     and shows no loading mark, the workspace selector does not open
+//     (aria-disabled), and the side column, the drawer's panel and the
+//     tabs say they are busy (aria-busy); the theme and the language keep
+//     working. The fresh result replaces it in place, under the same brand;
+//   - "Sair", the shell's own link to the console's sign-out page, runs the
+//     host's beforeSignOut first (since 1.4.0): an app erases its kept
+//     answer there, synchronously, before the browser leaves.
+//
 // It never applies the theme or the language on its own: a host calls
 // applyTheme, and changes its own language.
 import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
@@ -76,7 +90,7 @@ import ThcLanguageMenu from './controls/ThcLanguageMenu.vue'
 import ThcThemeToggle from './controls/ThcThemeToggle.vue'
 import { buildView } from './menu.js'
 import ShellMenu from './ShellMenu.vue'
-import type { Locale, ShellFallback, ShellPlace, ShellResult, Theme } from './types.js'
+import type { Locale, ShellData, ShellFallback, ShellPlace, ShellResult, Theme } from './types.js'
 
 const props = withDefaults(
   defineProps<{
@@ -105,8 +119,30 @@ const props = withDefaults(
     changeLocale?: (locale: Locale) => void
     /** The host's theme before or without data (signed out, the console not answering): the theme toggle shows it then. */
     theme?: Theme
+    /**
+     * The kept answer the host passes while result is null (decision 0047),
+     * checked by the host with readKept: drawn only for consoleOrigin, and
+     * on an app only for its subject. A result replaces it.
+     */
+    initial?: ShellData | null
+    /** Whether the kept answer is drawn read-only: links follow nothing and the selector does not open. */
+    readOnly?: boolean
+    /** What the host does, synchronously, when the person follows the shell's "Sair": an app erases its kept answer. */
+    beforeSignOut?: () => void
   }>(),
-  { subject: undefined, fallback: undefined, returnPath: null, navigate: undefined, title: null, changeTheme: undefined, changeLocale: undefined, theme: undefined },
+  {
+    subject: undefined,
+    fallback: undefined,
+    returnPath: null,
+    navigate: undefined,
+    title: null,
+    changeTheme: undefined,
+    changeLocale: undefined,
+    theme: undefined,
+    initial: null,
+    readOnly: false,
+    beforeSignOut: undefined,
+  },
 )
 
 const view = computed(() =>
@@ -122,6 +158,8 @@ const view = computed(() =>
     title: props.title,
     controls: props.changeTheme !== undefined && props.changeLocale !== undefined,
     theme: props.theme,
+    initial: props.initial,
+    readOnly: props.readOnly,
   }),
 )
 
@@ -246,8 +284,17 @@ const leaving = ref(false)
 /** pending is the click that may leave, until it has reached the window unprevented. */
 let pending: Event | null = null
 
-/** follow is every link's click: the panel and the drawer close, and a link to this origin goes through navigate. */
+/**
+ * follow is every link's click: the panel and the drawer close, and a link
+ * to this origin goes through navigate. While the kept answer is drawn
+ * read-only it follows nothing: the click is prevented, and the page stays
+ * as it is.
+ */
 function follow(event: MouseEvent, href: string): void {
+  if (view.value.readOnly) {
+    event.preventDefault()
+    return
+  }
   const path = routedPath(event, href)
   // A link to the page already shown changes no page, so nothing else takes
   // focus: the panel gives it back to its button.
@@ -264,6 +311,12 @@ function follow(event: MouseEvent, href: string): void {
     return
   }
   pending = leaves(event, href) ? event : null
+}
+
+/** onSignOut is "Sair"'s click: the host's beforeSignOut runs before the browser follows it. */
+function onSignOut(event: MouseEvent, href: string): void {
+  if (!view.value.readOnly && !event.defaultPrevented) props.beforeSignOut?.()
+  follow(event, href)
 }
 
 /** dropLeaving gives the page back: the browser did not go (stopped, refused) or the host routed. */
@@ -391,11 +444,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="thc-shell" :class="`thc-tone-${view.tone}`" :lang="view.lang" data-test="shell" :data-shell="view.mode" :data-tone="view.tone">
+  <div
+    class="thc-shell"
+    :class="`thc-tone-${view.tone}`"
+    :lang="view.lang"
+    data-test="shell"
+    :data-shell="view.mode"
+    :data-tone="view.tone"
+    :data-read-only="view.readOnly ? 'true' : undefined"
+  >
     <a class="thc-shell-skip" href="#thc-shell-main" @click.prevent="skip">{{ view.words.skip }}</a>
 
-    <aside class="thc-shell-side">
-      <ShellMenu :model="view.menu" :new-tab="view.words.newTab" @follow="follow">
+    <aside class="thc-shell-side" :aria-busy="view.readOnly ? 'true' : undefined">
+      <ShellMenu :model="view.menu" :new-tab="view.words.newTab" @follow="follow" @sign-out="onSignOut">
         <template #footer><slot name="menu-footer" /></template>
       </ShellMenu>
     </aside>
@@ -410,12 +471,12 @@ onBeforeUnmount(() => {
       @keydown="onDrawerKey"
       @click="onDrawerClick"
     >
-      <div class="thc-shell-drawer-panel">
+      <div class="thc-shell-drawer-panel" :aria-busy="view.readOnly ? 'true' : undefined">
         <button type="button" class="thc-shell-close" data-test="shell-close" @click="closeDrawer">
           <svg class="thc-shell-icon thc-shell-icon-lg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" /></svg>
           <span class="thc-shell-hidden">{{ view.words.closeMenu }}</span>
         </button>
-        <ShellMenu v-if="drawerOpen" :model="view.menu" :new-tab="view.words.newTab" @follow="follow">
+        <ShellMenu v-if="drawerOpen" :model="view.menu" :new-tab="view.words.newTab" @follow="follow" @sign-out="onSignOut">
           <template #footer><slot name="menu-footer" /></template>
         </ShellMenu>
       </div>
@@ -603,7 +664,15 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <nav v-if="view.head.tabs.length > 0" :key="tabsKey" ref="tabsNav" class="thc-shell-tabs" :aria-label="view.head.tabsLabel" data-test="shell-tabs">
+          <nav
+            v-if="view.head.tabs.length > 0"
+            :key="tabsKey"
+            ref="tabsNav"
+            class="thc-shell-tabs"
+            :aria-label="view.head.tabsLabel"
+            :aria-busy="view.readOnly ? 'true' : undefined"
+            data-test="shell-tabs"
+          >
             <ul class="thc-shell-tab-list">
               <li v-for="tab in view.head.tabs" :key="tab.id">
                 <a
@@ -1149,6 +1218,15 @@ onBeforeUnmount(() => {
 
 .thc-shell-profile .thc-shell-ws-name {
   font-size: 13px;
+}
+
+/* A kept answer drawn read-only (1.4.0): its links and the selector wait
+   for the fresh answer, which replaces it in a moment. */
+.thc-shell[data-read-only='true'] .thc-shell-side a,
+.thc-shell[data-read-only='true'] .thc-shell-drawer a,
+.thc-shell[data-read-only='true'] .thc-shell-tabs a,
+.thc-shell[data-read-only='true'] .thc-shell-ws-button {
+  cursor: progress;
 }
 
 .thc-shell-sign-out {
