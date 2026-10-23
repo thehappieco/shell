@@ -99,26 +99,24 @@ export function signOutURL(consoleOrigin: string): string {
 
 /**
  * signInURL is the console's sign-in (2.3): its /auth/login, back to
- * returnTo (a console path; /workspaces when it is not one), in locale and,
- * when the host gave one, its theme (decision 0050), both of which the
- * console sends on to id.
+ * returnTo (a console path; /workspaces when it is not one), with locale
+ * for the console's own error pages. It carries no theme (decision 0052:
+ * links carry no look; the company's cookies do), and takes one only so
+ * that a host written for 1.4.1 still builds.
  */
-export function signInURL(consoleOrigin: string, returnTo: string | null, locale: Locale, theme?: Theme): string {
+export function signInURL(consoleOrigin: string, returnTo: string | null, locale: Locale, _theme?: Theme): string {
   const q = new URLSearchParams({ return_to: checkReturnPath(returnTo) ?? '/workspaces', locale })
-  if (theme !== undefined) q.set('theme', theme)
   return `${consoleOrigin}/auth/login?${q.toString()}`
 }
 
 /**
  * consoleHomeURL is the console's home, linked from a shell without the
- * console's data (signed out, not answering, another account): it carries
- * the page's language and, when the host gave one, its theme, as every link
- * between the ecosystem's pages does (decision 0050).
+ * console's data (signed out, not answering, another account). It carries
+ * no language or theme (decision 0052: the company's cookies do), and takes
+ * them only so that a host written for 1.4.1 still builds.
  */
-export function consoleHomeURL(consoleOrigin: string, locale: Locale, theme?: Theme): string {
-  const q = new URLSearchParams({ ui_locales: locale })
-  if (theme !== undefined) q.set('ui_theme', theme)
-  return `${consoleOrigin}/?${q.toString()}`
+export function consoleHomeURL(consoleOrigin: string, _locale?: Locale, _theme?: Theme): string {
+  return `${consoleOrigin}/`
 }
 
 const SHELL_ID = /^[a-z][a-z0-9-]{0,31}$/

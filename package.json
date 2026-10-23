@@ -1,6 +1,6 @@
 {
   "name": "@thehappieco/shell",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "The Happie Co's shared shell: the side menu, the header and the look that the console and every app draw (Vue 3 source).",
   "type": "module",
   "license": "Apache-2.0",

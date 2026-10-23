@@ -194,3 +194,20 @@
   --thc-tone-tint: var(--thc-tint-blue);
   --thc-on-tone: var(--thc-on-blue);
 }
+
+/* The look's crossfade (motion.ts's changeLook, shell 1.5.0, decision
+   0052): a change of theme or language fades the old page into the new
+   over 0.3 s, as thehappie.co does. The class is on <html> only while that
+   crossfade runs, so no other view transition of a host takes this timing. */
+:root.thc-look-changing::view-transition-old(root),
+:root.thc-look-changing::view-transition-new(root) {
+  animation-duration: 0.3s;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root.thc-look-changing::view-transition-old(root),
+  :root.thc-look-changing::view-transition-new(root) {
+    animation: none;
+  }
+}
