@@ -9,7 +9,7 @@
 //   - return goes only onto an in-shell screen's link, percent-encoded, and
 //     only when a console page asks for it.
 
-import { type Locale, ROLES, type Role, type ShellApp, type ShellScreen } from './types.js'
+import { type Locale, ROLES, type Role, type ShellApp, type ShellScreen, type Theme } from './types.js'
 
 /** The one placeholder a path template has. */
 export const WORKSPACE_PLACEHOLDER = '{workspace}'
@@ -99,11 +99,26 @@ export function signOutURL(consoleOrigin: string): string {
 
 /**
  * signInURL is the console's sign-in (2.3): its /auth/login, back to
- * returnTo (a console path; /workspaces when it is not one), in locale.
+ * returnTo (a console path; /workspaces when it is not one), in locale and,
+ * when the host gave one, its theme (decision 0050), both of which the
+ * console sends on to id.
  */
-export function signInURL(consoleOrigin: string, returnTo: string | null, locale: Locale): string {
+export function signInURL(consoleOrigin: string, returnTo: string | null, locale: Locale, theme?: Theme): string {
   const q = new URLSearchParams({ return_to: checkReturnPath(returnTo) ?? '/workspaces', locale })
+  if (theme !== undefined) q.set('theme', theme)
   return `${consoleOrigin}/auth/login?${q.toString()}`
+}
+
+/**
+ * consoleHomeURL is the console's home, linked from a shell without the
+ * console's data (signed out, not answering, another account): it carries
+ * the page's language and, when the host gave one, its theme, as every link
+ * between the ecosystem's pages does (decision 0050).
+ */
+export function consoleHomeURL(consoleOrigin: string, locale: Locale, theme?: Theme): string {
+  const q = new URLSearchParams({ ui_locales: locale })
+  if (theme !== undefined) q.set('ui_theme', theme)
+  return `${consoleOrigin}/?${q.toString()}`
 }
 
 const SHELL_ID = /^[a-z][a-z0-9-]{0,31}$/

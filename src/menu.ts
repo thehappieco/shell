@@ -38,7 +38,7 @@
 
 import { NAMES, PRODUCT_BRAND_IDS, type ProductBrandId } from './brand/marks.js'
 import { type ShellKey, localText, shellText } from './i18n.js'
-import { APP_AI_TAB, checkReturnPath, consoleURL, hopPath, screenURL, signInURL, signOutURL, visibleScreens } from './paths.js'
+import { APP_AI_TAB, checkReturnPath, consoleHomeURL, consoleURL, hopPath, screenURL, signInURL, signOutURL, visibleScreens } from './paths.js'
 import type {
   AppColor,
   Locale,
@@ -573,7 +573,7 @@ function loadingView(input: ShellInput, tx: Tx, back: HeadModel['back']): { menu
     menu: {
       readOnly: false,
       loading: true,
-      brandHref: `${input.consoleOrigin}/`,
+      brandHref: consoleHomeURL(input.consoleOrigin, input.locale, input.theme),
       brandLabel: tx('home'),
       navLabel: tx('nav'),
       selector: null,
@@ -620,16 +620,17 @@ function fallbackView(
   let notice: HeadModel['notice'] = null
   if (mode === 'signed-out') {
     const hop = place.kind === 'app' ? hopPath(place.app, place.screen, input.workspace) : '/workspaces'
-    notice = { kind: 'signed-out', text: tx('signedOut'), href: signInURL(origin, hop, lang), link: tx('signIn') }
+    notice = { kind: 'signed-out', text: tx('signedOut'), href: signInURL(origin, hop, lang, input.theme), link: tx('signIn') }
   } else if (mode === 'unavailable' || mode === 'other-account') {
-    notice = { kind: mode, text: tx(mode === 'unavailable' ? 'unavailable' : 'otherAccount'), href: `${origin}/`, link: tx('openConsole') }
+    const href = consoleHomeURL(origin, lang, input.theme)
+    notice = { kind: mode, text: tx(mode === 'unavailable' ? 'unavailable' : 'otherAccount'), href, link: tx('openConsole') }
   }
 
   return {
     menu: {
       readOnly: false,
       loading: false,
-      brandHref: `${origin}/`,
+      brandHref: consoleHomeURL(origin, lang, input.theme),
       brandLabel: tx('home'),
       navLabel: tx('nav'),
       selector: null,

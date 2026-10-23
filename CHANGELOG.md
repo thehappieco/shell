@@ -2,6 +2,15 @@
 
 Published to `github.com/thehappieco/shell` by `scripts/shell-package.sh`, which copies this file and refuses a version it does not name.
 
+## 1.4.1 (2026-10-23)
+
+The language and theme travel with the shell's links drawn without the console's data (decision 0050). Additive: a host that passes no `theme` gets the same links as with 1.4.0, plus the language on the console's home.
+
+- **Signed out:** the notice's sign-in link to the console's `/auth/login` carries the host's `theme` beside `locale`, which the console sends on to id.
+- **The console not answering, or another account's:** the notice's link and the brand go to the console's home with `?ui_locales=` and, when the host passes one, `&ui_theme=`, which the console shows for that page.
+- **New export:** `consoleHomeURL(consoleOrigin, locale, theme?)`. `signInURL` takes an optional fourth argument, the theme.
+- **For an app:** pass `theme` to `ThcShell` (the theme the page shows), as the console does. With the console's data, nothing changes: both ends take the account's language and theme from it.
+
 ## 1.4.0 (2026-10-19)
 
 Moving between the console and an app without the menu reloading (design `docs/design/2026-10-12/shell-1.4-instant-moves.md`, decision 0047; contract 1.5, 2.4, 3.2 and 3.3). Additive: a host that passes none of the new props draws exactly as with 1.3.0.

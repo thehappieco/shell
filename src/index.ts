@@ -36,6 +36,7 @@ export {
   APP_AI_TAB,
   APP_OVERVIEW_TAB,
   checkReturnPath,
+  consoleHomeURL,
   consoleURL,
   fillPath,
   hopPath,

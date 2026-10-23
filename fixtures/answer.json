@@ -174,13 +174,13 @@
         "origin": "http://app.mailie.thehappie.localhost:5174",
         "letter": "M",
         "color": "rust",
-        "in_shell": false,
+        "in_shell": true,
         "overview": "/workspaces/{workspace}/apps/mailie",
         "ai": "/workspaces/{workspace}/apps/mailie/ai",
         "screens": [
           {
             "id": "email-accounts",
-            "path": "/",
+            "path": "/console/email-accounts?workspace={workspace}",
             "min_role": "member",
             "title": {
               "pt-BR": "Contas de email",
@@ -189,23 +189,23 @@
             }
           },
           {
-            "id": "api-keys",
-            "path": "/",
-            "min_role": "admin",
-            "title": {
-              "pt-BR": "Chaves de API",
-              "en": "API keys",
-              "es": "Claves de API"
-            }
-          },
-          {
             "id": "permissions",
-            "path": "/",
+            "path": "/console/permissions?workspace={workspace}",
             "min_role": "member",
             "title": {
               "pt-BR": "Permissões",
               "en": "Permissions",
               "es": "Permisos"
+            }
+          },
+          {
+            "id": "api-keys",
+            "path": "/console/api-keys?workspace={workspace}",
+            "min_role": "admin",
+            "title": {
+              "pt-BR": "Chaves de API",
+              "en": "API keys",
+              "es": "Claves de API"
             }
           }
         ]
