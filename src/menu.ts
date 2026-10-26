@@ -2,19 +2,21 @@
 // plain data, so the component only renders it and the rules can be tested
 // without a page:
 //   - with data: the brand, the workspace selector, the groups Espaço (the
-//     workspace's sections), Da conta (the account's) and Apps (one entry
-//     per app, to its overview), the profile and "Sair", and a header with
-//     the title (the h1 and the menu's current link say where the person
-//     is: there is no breadcrumb since 1.3.0), the theme toggle and the
-//     language menu when the host can keep a change (it passes both
-//     handlers), else "Aparência e idioma", a link to Minha conta, and, for
-//     an app, its tabs: the overview, the console's AI tab, then each
-//     screen the person's role reaches, or one tab that opens the app's own
-//     page while it is not in the shell;
-//   - the account button's panel, under 900 px (since 1.3.0): the profile,
-//     the workspace shown (to every workspace), then the theme and the
-//     language, or "Aparência e idioma"; without data, the theme and the
-//     language alone when the host passes both handlers, else no button;
+//     workspace's sections), Apps (one entry per app, to its overview) and
+//     Minha conta (since 1.6.0: Perfil, the data's account pages, Minhas
+//     compras among them, then Segurança, id.'s account page, when the data
+//     names one), and a header with the title (the h1 and the menu's current
+//     link say where the person is: there is no breadcrumb since 1.3.0), the
+//     theme toggle and the language menu when the host can keep a change (it
+//     passes both handlers), then the avatar, and, for an app, its tabs: the
+//     overview, the console's AI tab, then each screen the person's role
+//     reaches, or one tab that opens the app's own page while it is not in
+//     the shell;
+//   - the avatar's menu (since 1.6.0): the person's initials and name, the
+//     Minha conta group's links, "Aparência e idioma" (a link to the
+//     profile) for a host that cannot keep a change, and "Sair", to the
+//     console's sign-out page; under 900 px the theme and the language too,
+//     for a host that can (Shell.vue's AvatarMenu decides the width);
 //   - while the data loads with a kept answer the host passes (initial,
 //     since 1.4.0; decision 0047): the kept answer drawn as data, in the
 //     host's language, when it is for the host's console origin and, on an
@@ -22,19 +24,21 @@
 //     host says so (the console, until its fresh answer arrives): every link
 //     keeps its href but follows nothing, and the selector does not open;
 //   - while the data loads (result null): a quiet column, the brand alone,
-//     with no selector, group, profile or foot, so the column fills once
-//     when the data arrives rather than drawing the app's own links and
-//     swapping them for the console's; the header keeps the app's mark and
-//     name and the host's title, as without data. With no fallback (the
-//     console's pages of an app), a product of the kit named by the place
-//     is drawn as its symbol and written name, from the kit alone;
+//     with no selector or group, so the column fills once when the data
+//     arrives rather than drawing the app's own links and swapping them for
+//     the console's; the header keeps the app's mark and name and the
+//     host's title, as without data, and draws no avatar. With no fallback
+//     (the console's pages of an app), a product of the kit named by the
+//     place is drawn as its symbol and written name, from the kit alone;
 //   - without data (signed out, the console not answering, or another
-//     person's console): the app's own menu, a notice and one link.
+//     person's console): the app's own menu, a notice and one link, and no
+//     avatar: nothing of the person.
 // A link is current as the page shown (aria-current="page") only when it
 // leads to that page; the app's entry while one of its screens shows, and
 // the workspace on an account page, are where the person is ("true").
-// Every href is built by paths.ts; every word is the data's, i18n.ts's, or,
-// while loading, a product of the kit's own written name (brand/marks.ts).
+// Every href is built by paths.ts, or is the data's checked
+// account_security_url; every word is the data's, i18n.ts's, or, while
+// loading, a product of the kit's own written name (brand/marks.ts).
 
 import { NAMES, PRODUCT_BRAND_IDS, type ProductBrandId } from './brand/marks.js'
 import { type ShellKey, localText, shellText } from './i18n.js'
@@ -63,6 +67,9 @@ export const SECTION_ICONS: Readonly<Record<string, string>> = Object.freeze({
   settings: 'gear',
   contacts: 'book',
   ai: 'spark',
+  account: 'person',
+  purchases: 'receipt',
+  security: 'shield',
 })
 
 export interface AppMark {
@@ -129,33 +136,19 @@ export interface WorkspaceSelector {
   allCurrent: boolean
 }
 
-export interface ProfileLink {
-  href: string
-  name: string | null
-  initials: string | null
-  label: string
-  current: boolean
-}
-
 export interface MenuModel {
   /**
    * The kept answer drawn read-only (since 1.4.0): every link keeps its
    * href but follows nothing, and the workspace selector does not open.
    */
   readOnly: boolean
-  /**
-   * While the shell's data loads: the column draws the brand alone, with
-   * no selector, group, profile or foot (the host's menu-footer included).
-   */
+  /** While the shell's data loads: the column draws the brand alone, with no selector or group. */
   loading: boolean
   brandHref: string
   brandLabel: string
   navLabel: string
   selector: WorkspaceSelector | null
   groups: MenuGroup[]
-  profile: ProfileLink | null
-  /** "Sair", a link to the console's sign-out page, drawn when the host puts nothing of its own at the foot. */
-  signOut: { href: string; label: string } | null
 }
 
 export interface HeadLink {
@@ -169,24 +162,35 @@ export interface HeadLink {
 }
 
 /**
- * AccountPanel is the account button's panel under 900 px, where the
- * header's theme and language controls do not fit: the profile, the
- * workspace shown, then the theme and the language (HeadModel.controls) or
- * "Aparência e idioma" (HeadModel.appearance).
+ * AvatarModel is the header's avatar and its menu (since 1.6.0, in place of
+ * the side menu's foot and of 1.3.0's account panel): the person's initials
+ * and name, then the Minha conta group's links, "Aparência e idioma" for a
+ * host that cannot keep a change, and "Sair". Drawn only with data.
  */
-export interface AccountPanel {
-  /** The button's name: "Sua conta", or "Aparência e idioma" when the panel holds only those. */
-  label: string
-  /** The button's avatar: the person's initials, or null for the neutral icon. */
+export interface AvatarModel {
+  /** The person's display name, drawn beside the circle at 900 px and wider; null without one. */
+  name: string | null
+  /** Up to two letters for the circle (initials), or null for the neutral person glyph. */
   initials: string | null
-  /** Whether Minha conta is the page shown: the button is highlighted. */
+  /** The button's own words, before the name: "Sua conta". */
+  label: string
+  /** Whether one of the group's links is the page shown: the button is highlighted. */
   current: boolean
-  /** The account row, a link to Minha conta; null without data. */
-  profile: ProfileLink | null
-  /** The workspace row: the workspace shown, or "Escolher espaço", a link to every workspace; null without data. */
-  workspace: { label: string; switchLabel: string; shown: WorkspaceItem | null; chooseLabel: string; href: string; current: boolean } | null
-  themeLabel: string
+  /** The Minha conta group's links, as the side menu draws them. */
+  items: MenuLink[]
+  /** "Aparência e idioma", a link to the profile, for a host that passes no handlers (an app); null for one that does. */
+  appearance: { href: string; label: string; current: boolean } | null
+  /**
+   * Under 900 px, for a host that passes both handlers, the menu holds the
+   * theme toggle and the language's flag in one row: the row's name
+   * ("Aparência e idioma"), and the words of the language's dialog, its
+   * title ("Idioma") and its close button ("Fechar").
+   */
+  prefsLabel: string
   languageLabel: string
+  closeLabel: string
+  /** "Sair": the console's sign-out page, or the host's own sign-out (Shell.vue's signOut). */
+  signOut: { href: string; label: string }
 }
 
 export interface HeadModel {
@@ -196,20 +200,16 @@ export interface HeadModel {
   tabs: HeadLink[]
   back: { href: string; label: string } | null
   notice: { kind: 'signed-out' | 'unavailable' | 'other-account'; text: string; href: string; link: string } | null
-  /** "Aparência e idioma": the account's language and theme live in Minha conta. Null when the controls are drawn. */
-  appearance: { href: string; label: string; current: boolean } | null
   /**
    * The theme toggle and the language menu, when the host passes both
    * handlers: what they show is the data's theme and language, or, before
-   * or without data, "system" and the host's language.
+   * or without data, "system" and the host's language. At 900 px and wider
+   * the header draws them; under it the avatar's menu does.
    */
   controls: { theme: Theme; locale: Locale } | null
-  /** The account button under 900 px: null when it has nothing to show (no data and no controls). */
-  account: AccountPanel | null
+  /** The avatar and its menu: null without data (loading, signed out, unavailable, another person's console). */
+  avatar: AvatarModel | null
 }
-
-/** HeadParts is the header before its account panel, which buildView adds from the menu and the controls. */
-type HeadParts = Omit<HeadModel, 'account'>
 
 /**
  * ShellMode is what the shell draws from: the data (ready), a kept answer
@@ -256,15 +256,22 @@ export interface ShellInput {
   readOnly?: boolean | undefined
 }
 
-/** initials is up to two letters of a name, for an avatar: the first and last words' first letters. */
-export function initials(name: string | null): string | null {
+/**
+ * initials is up to two letters of a display name, for the avatar's circle
+ * (since 1.6.0): the name in NFC, then the first letter of its first word
+ * and of its last word (one letter for a one-word name), each upper-cased
+ * in the person's language. A word's letter is its first letter or digit,
+ * so a parenthesis or a quote before it does not stand in for it. A name
+ * with no letter at all is null: the circle then holds the neutral glyph.
+ */
+export function initials(name: string | null, locale: Locale = 'en'): string | null {
   if (name === null) return null
-  const words = name.trim().split(/\s+/).filter(w => w !== '')
-  const first = words[0]
-  if (first === undefined) return null
-  const letter = (w: string) => Array.from(w)[0]?.toLocaleUpperCase() ?? ''
-  const last = words.length > 1 ? words[words.length - 1] : undefined
-  return letter(first) + (last === undefined ? '' : letter(last))
+  const words = name.normalize('NFC').trim().split(/\s+/).filter(w => w !== '')
+  const letter = (w: string | undefined) => (w === undefined ? '' : (/[\p{L}\p{N}]/u.exec(w)?.[0] ?? '').toLocaleUpperCase(locale))
+  const first = letter(words[0])
+  const last = words.length > 1 ? letter(words[words.length - 1]) : ''
+  const out = first + last
+  return out === '' ? null : out
 }
 
 /**
@@ -296,41 +303,14 @@ export function buildView(input: ShellInput): ShellView {
   const tx = (k: ShellKey, p?: Readonly<Record<string, string>>) => shellText(lang, k, p)
   const words = { skip: tx('skip'), menu: tx('menu'), closeMenu: tx('closeMenu'), newTab: tx('newTab'), loading: tx('loading') }
   const back = backLink(input, tx)
-  let built: { menu: MenuModel; head: HeadParts }
+  let built: { menu: MenuModel; head: HeadModel }
   if (mode === 'ready' && data !== null) built = readyView(input, data, lang, tx, back)
   else if (mode === 'kept' && data !== null) built = readyView(input, data, lang, tx, back, { theme: input.theme ?? data.theme, locale: input.locale })
   else if (mode === 'loading') built = loadingView(input, tx, back)
   else built = fallbackView(input, mode, lang, tx, back)
   const readOnly = mode === 'kept' && input.readOnly === true
   const menu: MenuModel = { ...built.menu, readOnly }
-  const head: HeadModel = { ...built.head, account: accountPanel(menu, built.head, tx) }
-  return { mode, lang, words, menu, head, tone: built.head.app?.color ?? 'indigo', readOnly }
-}
-
-/**
- * accountPanel is what the account button shows under 900 px: with data,
- * the person and the workspace, then the theme and the language or the
- * link to Minha conta; without data (loading, signed out, the console not
- * answering, another person's console) nothing of the console's person,
- * only the theme and the language when the host can keep a change; else
- * no button at all.
- */
-function accountPanel(menu: MenuModel, head: HeadParts, tx: Tx): AccountPanel | null {
-  const profile = menu.profile
-  if (profile === null && head.controls === null) return null
-  const s = menu.selector
-  return {
-    label: profile === null ? tx('appearance') : tx('yourAccount'),
-    initials: profile?.initials ?? null,
-    current: profile?.current ?? false,
-    profile,
-    workspace:
-      profile === null || s === null
-        ? null
-        : { label: s.label, switchLabel: s.switchLabel, shown: s.shown, chooseLabel: s.chooseLabel, href: s.allHref, current: s.allCurrent },
-    themeLabel: tx('theme'),
-    languageLabel: tx('language'),
-  }
+  return { mode, lang, words, menu, head: built.head, tone: built.head.app?.color ?? 'indigo', readOnly }
 }
 
 type Tx = (k: ShellKey, p?: Readonly<Record<string, string>>) => string
@@ -356,7 +336,7 @@ function readyView(
   tx: Tx,
   back: HeadModel['back'],
   shown: { theme: Theme; locale: Locale } = { theme: data.theme, locale: data.locale },
-): { menu: MenuModel; head: HeadParts } {
+): { menu: MenuModel; head: HeadModel } {
   const origin = input.consoleOrigin
   const place = input.place
   const { menu } = data
@@ -392,10 +372,19 @@ function readyView(
     if (app?.id === a.id) here = tab === null ? 'page' : 'true'
     return [{ id: a.id, href, label: a.name, current: here, icon: null, app: { letter: a.letter, color: a.color, brand: appBrand(a.id) }, newTab: false, note: null }]
   })
+  // Minha conta (since 1.6.0): Perfil (the data's profile), the account's
+  // pages, then Segurança, id.'s account page, when the data names one.
+  const security = data.account_security_url ?? null
+  const accountLinks: MenuLink[] = [
+    ...sectionLinks([menu.profile, ...menu.account]),
+    ...(security === null
+      ? []
+      : [{ id: 'security', href: security, label: tx('security'), current: null, icon: SECTION_ICONS['security'] ?? 'dot', app: null, newTab: false, note: null }]),
+  ]
   const groups: MenuGroup[] = [
     { id: 'workspace', label: tx('groupWorkspace'), app: null, links: sectionLinks(menu.workspace) },
-    { id: 'account', label: tx('groupAccount'), app: null, links: sectionLinks(menu.account) },
     { id: 'apps', label: tx('groupApps'), app: null, links: appLinks },
+    { id: 'account', label: tx('groupAccount'), app: null, links: accountLinks },
   ].filter(g => g.links.length > 0)
 
   const general = menu.workspace.find(s => s.id === 'general') ?? menu.workspace[0] ?? null
@@ -439,12 +428,18 @@ function readyView(
           allCurrent: place.kind === 'console' && place.section === 'workspaces',
         }
 
-  const profile: ProfileLink = {
-    href: `${origin}${menu.profile.path}`,
+  const profileHref = `${origin}${menu.profile.path}`
+  const avatar: AvatarModel = {
     name: data.display_name,
-    initials: initials(data.display_name),
-    label: localText(menu.profile.title, lang),
-    current: isSection(menu.profile),
+    initials: initials(data.display_name, lang),
+    label: tx('yourAccount'),
+    current: accountLinks.some(l => l.current === 'page'),
+    items: accountLinks,
+    appearance: input.controls === true ? null : { href: profileHref, label: tx('appearance'), current: isSection(menu.profile) },
+    prefsLabel: tx('appearance'),
+    languageLabel: tx('language'),
+    closeLabel: tx('close'),
+    signOut: { href: signOutURL(origin), label: tx('signOut') },
   }
 
   // The header.
@@ -490,8 +485,6 @@ function readyView(
       navLabel: tx('nav'),
       selector,
       groups,
-      profile,
-      signOut: { href: signOutURL(origin), label: tx('signOut') },
     },
     head: {
       title,
@@ -500,8 +493,8 @@ function readyView(
       tabs,
       back,
       notice: null,
-      appearance: input.controls === true ? null : { href: `${origin}${menu.profile.path}`, label: tx('appearance'), current: isSection(menu.profile) },
       controls: input.controls === true ? shown : null,
+      avatar,
     },
   }
 }
@@ -523,7 +516,7 @@ function fallbackHead(
   back: HeadModel['back'],
   notice: HeadModel['notice'],
   own: { mark: AppMark; name: string } | null = null,
-): HeadParts {
+): HeadModel {
   const place = input.place
   const fb = input.fallback ?? null
   const screenId = place.kind === 'app' ? place.screen : null
@@ -540,8 +533,8 @@ function fallbackHead(
     tabs: [],
     back,
     notice,
-    appearance: null,
     controls: input.controls === true ? { theme: input.theme ?? 'system', locale: input.locale } : null,
+    avatar: null,
   }
 }
 
@@ -567,7 +560,7 @@ function placeMark(place: ShellPlace): { mark: AppMark; name: string } | null {
  * where the data draws the same. A host with no fallback (the console, on its pages of an app) gets
  * the mark and name of the product of the kit its place names.
  */
-function loadingView(input: ShellInput, tx: Tx, back: HeadModel['back']): { menu: MenuModel; head: HeadParts } {
+function loadingView(input: ShellInput, tx: Tx, back: HeadModel['back']): { menu: MenuModel; head: HeadModel } {
   const own = input.fallback === undefined ? placeMark(input.place) : null
   return {
     menu: {
@@ -578,8 +571,6 @@ function loadingView(input: ShellInput, tx: Tx, back: HeadModel['back']): { menu
       navLabel: tx('nav'),
       selector: null,
       groups: [],
-      profile: null,
-      signOut: null,
     },
     head: fallbackHead(input, tx, back, null, own),
   }
@@ -591,7 +582,7 @@ function fallbackView(
   lang: Locale,
   tx: Tx,
   back: HeadModel['back'],
-): { menu: MenuModel; head: HeadParts } {
+): { menu: MenuModel; head: HeadModel } {
   const origin = input.consoleOrigin
   const place = input.place
   const fb = input.fallback ?? null
@@ -635,8 +626,6 @@ function fallbackView(
       navLabel: tx('nav'),
       selector: null,
       groups,
-      profile: null,
-      signOut: null,
     },
     head: fallbackHead(input, tx, back, notice),
   }

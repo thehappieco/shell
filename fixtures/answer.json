@@ -87,6 +87,15 @@
     ],
     "account": [
       {
+        "id": "purchases",
+        "path": "/account/purchases",
+        "title": {
+          "pt-BR": "Minhas compras",
+          "en": "My purchases",
+          "es": "Mis compras"
+        }
+      },
+      {
         "id": "contacts",
         "path": "/contacts",
         "title": {
@@ -109,9 +118,9 @@
       "id": "account",
       "path": "/account",
       "title": {
-        "pt-BR": "Minha conta",
-        "en": "My account",
-        "es": "Mi cuenta"
+        "pt-BR": "Perfil",
+        "en": "Profile",
+        "es": "Perfil"
       }
     },
     "workspaces_path": "/workspaces",
@@ -253,5 +262,6 @@
         ]
       }
     ]
-  }
+  },
+  "account_security_url": "http://id.thehappie.localhost:8290/account"
 }

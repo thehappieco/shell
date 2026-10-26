@@ -70,7 +70,9 @@ export interface ShellApp {
 
 export interface ShellMenu {
   workspace: ShellSection[]
+  /** The account's pages after its profile: since 1.6.0 the "Minha conta" group's, after "Perfil". */
   account: ShellSection[]
+  /** The account's own page: since 1.6.0 the "Minha conta" group's first item. */
   profile: ShellSection
   workspaces_path: string
   apps: ShellApp[]
@@ -86,6 +88,13 @@ export interface ShellData {
   /** Open workspaces only, the personal one first. */
   workspaces: ShellWorkspace[]
   menu: ShellMenu
+  /**
+   * id.'s account page, where the password, the passkeys and the recovery
+   * code are: the "Minha conta" group's "Segurança" (since 1.6.0). null when
+   * the answer has none, or one that is not a plain web address. Optional
+   * so that a host's own test data written for 1.5 still builds.
+   */
+  account_security_url?: string | null
 }
 
 /** ShellResult is what loadShell found: the data, no console session (401), or anything else. */

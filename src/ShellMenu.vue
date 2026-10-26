@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // The side menu (shell contract 3.3), drawn from menu.ts's model: the
-// brand (the kit's symbol and lettering, brand/), the workspace selector, the groups, the profile, and the host's
-// menu-footer, or "Sair" to the console's sign-out page when the host puts
-// nothing there. While the shell's data loads it draws the brand alone:
-// nothing below it, the host's menu-footer included, so the column fills
-// once, under a brand that stays where it is. Shell.vue draws it twice when
+// brand (the kit's symbol and lettering, brand/), the workspace selector,
+// then the groups Espaço, Apps and Minha conta. Since 1.6.0 it has no foot:
+// the profile is Minha conta's first item, and "Sair" is in the header's
+// avatar menu (AvatarMenu.vue). While the shell's data loads it draws the
+// brand alone: nothing below it, so the column fills once, under a brand
+// that stays where it is. Shell.vue draws it twice when
 // the drawer is open (in the side column, which small screens hide, and in
 // the drawer), so its ids come from useId and it keeps no state but its own
 // selector's.
@@ -23,8 +24,7 @@
 // drawer, it would close the drawer too), and a click outside or following
 // a link closes it. Every entry is a plain link: following one is the
 // browser's navigation, or the host's for a link on its own origin
-// (Shell.vue decides, through the follow event; "Sair" through the signOut
-// event, so the host's beforeSignOut runs first). While a kept answer is
+// (Shell.vue decides, through the follow event). While a kept answer is
 // drawn read-only (since 1.4.0) the selector's button says it is disabled
 // and does not open, and Shell.vue follows no link.
 import { onBeforeUnmount, ref, useId, watch } from 'vue'
@@ -32,9 +32,10 @@ import ThcLockup from './brand/ThcLockup.vue'
 import ThcMark from './brand/ThcMark.vue'
 import ThcName from './brand/ThcName.vue'
 import type { MenuModel } from './menu.js'
+import ShellIcon from './ShellIcon.vue'
 
 defineProps<{ model: MenuModel; newTab: string }>()
-const emit = defineEmits<{ follow: [event: MouseEvent, href: string]; signOut: [event: MouseEvent, href: string] }>()
+const emit = defineEmits<{ follow: [event: MouseEvent, href: string] }>()
 
 const uid = useId()
 const open = ref(false)
@@ -63,11 +64,6 @@ function closeSelector(event: KeyboardEvent): void {
 function follow(event: MouseEvent, href: string): void {
   open.value = false
   emit('follow', event, href)
-}
-
-function signOut(event: MouseEvent, href: string): void {
-  open.value = false
-  emit('signOut', event, href)
 }
 
 /** toggle opens or closes the list, unless the kept answer is drawn read-only. */
@@ -190,37 +186,7 @@ function toggle(readOnly: boolean): void {
                   <ThcName :brand="l.app.brand" :size="22" />
                 </span>
                 <span v-else-if="l.app" class="thc-shell-av thc-shell-av-sm" :class="`thc-shell-app-${l.app.color}`" aria-hidden="true">{{ l.app.letter }}</span>
-                <svg v-else-if="l.icon" class="thc-shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <template v-if="l.icon === 'home'"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" /></template>
-                  <template v-else-if="l.icon === 'users'">
-                    <circle cx="9" cy="8" r="3.5" />
-                    <path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5" />
-                    <path d="M16 4.5a3.5 3.5 0 0 1 0 7" />
-                    <path d="M18 14.8c2 .7 3.2 2.4 3.5 5.2" />
-                  </template>
-                  <template v-else-if="l.icon === 'key'"><circle cx="8" cy="15" r="4" /><path d="M11 12l9-9M16 7l3 3M14 9l2 2" /></template>
-                  <template v-else-if="l.icon === 'card'"><rect x="3" y="5.5" width="18" height="13" rx="2.5" /><path d="M3 10h18" /><path d="M7 15h4" /></template>
-                  <template v-else-if="l.icon === 'disk'">
-                    <ellipse cx="12" cy="6" rx="8" ry="3" />
-                    <path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6" />
-                    <path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />
-                  </template>
-                  <template v-else-if="l.icon === 'clock'"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></template>
-                  <template v-else-if="l.icon === 'gear'">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" />
-                  </template>
-                  <template v-else-if="l.icon === 'book'">
-                    <path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" />
-                    <circle cx="12" cy="10" r="2.5" />
-                    <path d="M8.5 16c.6-1.6 1.9-2.5 3.5-2.5s2.9.9 3.5 2.5" />
-                  </template>
-                  <template v-else-if="l.icon === 'spark'">
-                    <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
-                    <path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />
-                  </template>
-                  <template v-else><circle cx="12" cy="12" r="3" /></template>
-                </svg>
+                <ShellIcon v-else-if="l.icon" :icon="l.icon" />
                 <span class="thc-shell-link-label" :class="{ 'thc-shell-hidden': Boolean(l.app?.brand) }">{{ l.label }}</span>
                 <template v-if="l.newTab">
                   <span class="thc-shell-out" aria-hidden="true">↗</span>
@@ -231,46 +197,6 @@ function toggle(readOnly: boolean): void {
           </ul>
         </div>
       </nav>
-
-      <div class="thc-shell-foot">
-        <a
-          v-if="model.profile"
-          class="thc-shell-link thc-shell-profile"
-          :class="{ 'thc-shell-current': model.profile.current }"
-          :href="model.profile.href"
-          :aria-current="model.profile.current ? 'page' : undefined"
-          data-test="shell-profile"
-          @click="follow($event, model.profile.href)"
-        >
-          <span class="thc-shell-person" aria-hidden="true">
-            <template v-if="model.profile.initials">{{ model.profile.initials }}</template>
-            <svg v-else class="thc-shell-icon" viewBox="0 0 24 24" focusable="false">
-              <circle cx="12" cy="9" r="3.5" />
-              <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
-            </svg>
-          </span>
-          <span class="thc-shell-ws-text">
-            <span v-if="model.profile.name" class="thc-shell-ws-name" data-test="shell-profile-name">{{ model.profile.name }}</span>
-            <span class="thc-shell-profile-label">{{ model.profile.label }}</span>
-          </span>
-        </a>
-        <!-- The host's sign-out, or, without one, the console's sign-out page. -->
-        <slot name="footer">
-          <a
-            v-if="model.signOut"
-            class="thc-shell-link thc-shell-sign-out"
-            :href="model.signOut.href"
-            data-test="shell-sign-out"
-            @click="signOut($event, model.signOut.href)"
-          >
-            <svg class="thc-shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
-              <path d="M10 16l-4-4 4-4M6 12h10" />
-            </svg>
-            <span>{{ model.signOut.label }}</span>
-          </a>
-        </slot>
-      </div>
     </template>
   </div>
 </template>

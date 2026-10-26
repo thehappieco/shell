@@ -16,26 +16,27 @@
 //   - text is interpolated, never parsed as HTML; colors are classes (the
 //     pages' CSP is style-src 'self'), so no value from the data reaches CSS;
 //   - nothing is stored, and nothing runs on a timer: the only listeners are
-//     the selector's, the language menu's and the account panel's outside
+//     the selector's, the language menu's and the avatar menu's outside
 //     clicks while they are open, the drawer's width, the theme toggle's
 //     system scheme, each symbol's mouse on its hover host, and the
 //     window's click (to see that the browser follows a link, below) and
 //     pageshow;
 //   - under 900 px the menu is a modal <dialog> behind the header's menu
 //     button (one header row, as Wappie's console: the button, the title,
-//     the host's actions and the account button):
+//     the host's actions and the avatar):
 //     Escape, the close button or any link closes it, and focus returns to
 //     the button, except after a link the host routes (navigate): the host
 //     then puts focus on its new page, and the dialog's close event, which
 //     the browser fires later as a task of its own, must not take it back;
-//   - under 900 px the header's theme toggle, language menu and "Aparência
-//     e idioma" are not drawn (display: none): the account button at the
-//     right (the person's avatar) opens a panel instead, a disclosure
-//     (aria-expanded, aria-controls while open) with the profile, the
-//     workspace shown (to every workspace), then the theme and the
-//     language, or "Aparência e idioma". Escape closes it back to its
-//     button and goes no further, and a click outside, focus leaving it or
-//     any link closes it. At 900 px and wider the button is not drawn;
+//   - the header ends with the avatar (since 1.6.0; AvatarMenu.vue), only
+//     with data: the person's initials and, at 900 px and wider, their
+//     name, a menu button whose menu holds the Minha conta group, "Aparência
+//     e idioma" for a host that cannot keep a change, and "Sair". Under
+//     900 px the header's theme toggle and language menu are not drawn
+//     (display: none), and the avatar's menu holds them instead, as one
+//     row: the same toggle, and the flag, which opens the language's
+//     choice in a modal dialog in the middle of the screen. Another page,
+//     or the window crossing 900 px, closes the menu;
 //   - the header has no breadcrumb (since 1.3.0): the h1 and the menu's
 //     current link say where the person is. The h1 takes focus by script,
 //     for screen readers, at each page (the host's router; tabindex -1),
@@ -51,9 +52,9 @@
 //     the content) until the document goes, while the menu and the header
 //     stay as they are; a page the browser brings back from its
 //     back/forward cache (pageshow, persisted) drops the mark;
-//   - "Sair" at the foot of the menu is the host's (the console puts its
-//     own button there); a host that puts nothing there gets the shell's
-//     link to the console's sign-out page, with data (ShellMenu.vue);
+//   - "Sair" is the avatar menu's last item (since 1.6.0; the side menu has
+//     no foot): a link to the console's sign-out page, or, for a host that
+//     passes signOut (the console), that host's own sign-out;
 //   - on an app's pages the title row is the app's: for a product of the
 //     kit, its symbol and its written name as the kit's contours inside the
 //     h1, whose text stays as hidden text (the page's name for assistive
@@ -62,8 +63,9 @@
 //     other app keeps its letter badge beside the h1's text;
 //   - the header's theme toggle and language menu (controls/) are drawn
 //     only for a host that passes both changeTheme and changeLocale, a host
-//     that can keep the change; any other keeps "Aparência e idioma", the
-//     link to Minha conta. They show the data's theme and language (or,
+//     that can keep the change; any other gets "Aparência e idioma", the
+//     link to the profile, in the avatar's menu. They show the data's theme
+//     and language (or,
 //     without data, the host's theme and locale), which the host patches
 //     when it shows a change, and again if it puts one back.
 //
@@ -77,15 +79,16 @@
 //     (aria-disabled), and the side column, the drawer's panel and the
 //     tabs say they are busy (aria-busy); the theme and the language keep
 //     working. The fresh result replaces it in place, under the same brand;
-//   - "Sair", the shell's own link to the console's sign-out page, runs the
-//     host's beforeSignOut first (since 1.4.0): an app erases its kept
-//     answer there, synchronously, before the browser leaves.
+//   - "Sair" runs the host's beforeSignOut first (since 1.4.0): an app
+//     erases its kept answer there, synchronously, before the browser
+//     leaves. While read-only, "Sair" is disabled.
 //
 // It never applies the theme or the language on its own: a host calls
 // applyTheme, and changes its own language.
-import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ThcMark from './brand/ThcMark.vue'
 import ThcName from './brand/ThcName.vue'
+import AvatarMenu from './AvatarMenu.vue'
 import ThcLanguageMenu from './controls/ThcLanguageMenu.vue'
 import ThcThemeToggle from './controls/ThcThemeToggle.vue'
 import { buildView } from './menu.js'
@@ -129,6 +132,12 @@ const props = withDefaults(
     readOnly?: boolean
     /** What the host does, synchronously, when the person follows the shell's "Sair": an app erases its kept answer. */
     beforeSignOut?: () => void
+    /**
+     * The host's own sign-out (since 1.6.0; the console's): "Sair" runs it,
+     * after beforeSignOut, instead of following the link to the console's
+     * sign-out page. Without it, "Sair" is that link.
+     */
+    signOut?: () => void
   }>(),
   {
     subject: undefined,
@@ -142,6 +151,7 @@ const props = withDefaults(
     initial: null,
     readOnly: false,
     beforeSignOut: undefined,
+    signOut: undefined,
   },
 )
 
@@ -179,7 +189,6 @@ function onLocale(locale: Locale): void {
  */
 const brandTitle = computed(() => Boolean(view.value.head.app?.brand) && props.title === null)
 
-const uid = useId()
 const main = ref<HTMLElement | null>(null)
 const drawer = ref<HTMLDialogElement | null>(null)
 const menuButton = ref<HTMLButtonElement | null>(null)
@@ -285,10 +294,10 @@ const leaving = ref(false)
 let pending: Event | null = null
 
 /**
- * follow is every link's click: the panel and the drawer close, and a link
- * to this origin goes through navigate. While the kept answer is drawn
- * read-only it follows nothing: the click is prevented, and the page stays
- * as it is.
+ * follow is every link's click: the drawer closes (the avatar's menu closes
+ * itself), and a link to this origin goes through navigate. While the kept
+ * answer is drawn read-only it follows nothing: the click is prevented, and
+ * the page stays as it is.
  */
 function follow(event: MouseEvent, href: string): void {
   if (view.value.readOnly) {
@@ -296,10 +305,6 @@ function follow(event: MouseEvent, href: string): void {
     return
   }
   const path = routedPath(event, href)
-  // A link to the page already shown changes no page, so nothing else takes
-  // focus: the panel gives it back to its button.
-  const here = (event.currentTarget as HTMLElement | null)?.getAttribute?.('aria-current') === 'page'
-  closeAccount(here)
   if (drawerOpen.value) {
     routed = path !== null
     closeDrawer()
@@ -313,9 +318,24 @@ function follow(event: MouseEvent, href: string): void {
   pending = leaves(event, href) ? event : null
 }
 
-/** onSignOut is "Sair"'s click: the host's beforeSignOut runs before the browser follows it. */
+/**
+ * onSignOut is "Sair"'s click (the avatar's menu does not send it while
+ * read-only): the host's beforeSignOut runs first; then the host's own
+ * sign-out, or the browser follows the link to the console's sign-out page.
+ * A click a handler prevented does neither.
+ */
 function onSignOut(event: MouseEvent, href: string): void {
-  if (!view.value.readOnly && !event.defaultPrevented) props.beforeSignOut?.()
+  if (view.value.readOnly) {
+    event.preventDefault()
+    return
+  }
+  if (event.defaultPrevented) return
+  props.beforeSignOut?.()
+  if (props.signOut !== undefined) {
+    event.preventDefault()
+    props.signOut()
+    return
+  }
   follow(event, href)
 }
 
@@ -353,44 +373,12 @@ function onPageShow(event: PageTransitionEvent): void {
   if (event.persisted) dropLeaving()
 }
 
-// The account button's panel, under 900 px.
-const account = ref<HTMLElement | null>(null)
-const accountButton = ref<HTMLButtonElement | null>(null)
-const accountOpen = ref(false)
+// The avatar's menu (AvatarMenu.vue), which closes itself on its own
+// events; another page and the window crossing 900 px close it from here.
+const avatar = ref<InstanceType<typeof AvatarMenu> | null>(null)
+/** narrow says the window is under 900 px: the avatar's menu then holds the theme and the language. */
+const narrow = ref(true)
 
-function closeAccount(focusButton: boolean): void {
-  if (!accountOpen.value) return
-  accountOpen.value = false
-  if (focusButton) accountButton.value?.focus()
-}
-
-function toggleAccount(): void {
-  if (accountOpen.value) closeAccount(false)
-  else accountOpen.value = true
-}
-
-/** onAccountKey: this Escape is the panel's alone, and focus goes back to its button. */
-function onAccountKey(event: KeyboardEvent): void {
-  if (event.key !== 'Escape' || !accountOpen.value) return
-  event.preventDefault()
-  event.stopPropagation()
-  closeAccount(true)
-}
-
-/** onAccountFocusOut closes the panel when focus moves on to anything outside it. */
-function onAccountFocusOut(event: FocusEvent): void {
-  const to = event.relatedTarget as Node | null
-  if (to !== null && account.value !== null && !account.value.contains(to)) closeAccount(false)
-}
-
-function onAccountOutside(event: Event): void {
-  if (account.value !== null && !account.value.contains(event.target as Node)) closeAccount(false)
-}
-
-watch(accountOpen, now => {
-  if (now) document.addEventListener('click', onAccountOutside, true)
-  else document.removeEventListener('click', onAccountOutside, true)
-})
 // Another page (a host's route, the browser's history) closes it; an equal
 // place drawn again (a host's new object for the same page) does not.
 const placeKey = computed(() => {
@@ -399,7 +387,7 @@ const placeKey = computed(() => {
   return `${where}|${props.workspace ?? ''}`
 })
 watch(placeKey, () => {
-  closeAccount(false)
+  avatar.value?.close(false)
   dropLeaving()
 })
 
@@ -418,16 +406,17 @@ function showCurrentTab(): void {
 watch(currentTab, showCurrentTab, { flush: 'post' })
 
 // A drawer left open while the window grows past the breakpoint would keep
-// the page inert behind a menu nobody sees; the account panel's button is
-// not drawn there.
+// the page inert behind a menu nobody sees; the avatar's menu holds other
+// items on each side of it, so it closes either way.
 let wide: MediaQueryList | null = null
 function onWide(e: MediaQueryListEvent): void {
-  if (!e.matches) return
-  closeDrawer()
-  closeAccount(false)
+  narrow.value = !e.matches
+  avatar.value?.close(false)
+  if (e.matches) closeDrawer()
 }
 onMounted(() => {
   wide = globalThis.matchMedia?.('(min-width: 900px)') ?? null
+  narrow.value = wide?.matches !== true
   wide?.addEventListener?.('change', onWide)
   window.addEventListener('click', onWindowClick)
   window.addEventListener('pageshow', onPageShow)
@@ -437,7 +426,6 @@ onBeforeUnmount(() => {
   wide?.removeEventListener?.('change', onWide)
   window.removeEventListener('click', onWindowClick)
   window.removeEventListener('pageshow', onPageShow)
-  document.removeEventListener('click', onAccountOutside, true)
   document.removeEventListener('keydown', dropLeaving, true)
   document.removeEventListener('pointerdown', dropLeaving, true)
 })
@@ -456,9 +444,7 @@ onBeforeUnmount(() => {
     <a class="thc-shell-skip" href="#thc-shell-main" @click.prevent="skip">{{ view.words.skip }}</a>
 
     <aside class="thc-shell-side" :aria-busy="view.readOnly ? 'true' : undefined">
-      <ShellMenu :model="view.menu" :new-tab="view.words.newTab" @follow="follow" @sign-out="onSignOut">
-        <template #footer><slot name="menu-footer" /></template>
-      </ShellMenu>
+      <ShellMenu :model="view.menu" :new-tab="view.words.newTab" @follow="follow" />
     </aside>
 
     <dialog
@@ -476,9 +462,7 @@ onBeforeUnmount(() => {
           <svg class="thc-shell-icon thc-shell-icon-lg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" /></svg>
           <span class="thc-shell-hidden">{{ view.words.closeMenu }}</span>
         </button>
-        <ShellMenu v-if="drawerOpen" :model="view.menu" :new-tab="view.words.newTab" @follow="follow" @sign-out="onSignOut">
-          <template #footer><slot name="menu-footer" /></template>
-        </ShellMenu>
+        <ShellMenu v-if="drawerOpen" :model="view.menu" :new-tab="view.words.newTab" @follow="follow" />
       </div>
     </dialog>
 
@@ -530,137 +514,26 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <div class="thc-shell-actions">
-              <!-- The theme and the language, at 900 px and wider; under it they are in the account panel. -->
-              <div v-if="view.head.controls || view.head.appearance" class="thc-shell-head-prefs" data-test="shell-head-prefs">
-                <template v-if="view.head.controls">
-                  <ThcThemeToggle :value="view.head.controls.theme" :locale="view.lang" data-test="shell-theme" @change="onTheme" />
-                  <ThcLanguageMenu :value="view.head.controls.locale" :locale="view.lang" data-test="shell-language" @change="onLocale" />
-                </template>
-                <a
-                  v-if="view.head.appearance"
-                  class="thc-shell-action"
-                  :href="view.head.appearance.href"
-                  :aria-label="view.head.appearance.label"
-                  :title="view.head.appearance.label"
-                  :aria-current="view.head.appearance.current ? 'page' : undefined"
-                  data-test="shell-appearance"
-                  @click="follow($event, view.head.appearance?.href ?? '')"
-                >
-                  <svg class="thc-shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <circle cx="12" cy="12" r="8.5" />
-                    <path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5s1.1-6.1 3.5-8.5z" />
-                  </svg>
-                </a>
+              <!-- The theme and the language, at 900 px and wider; under it they are in the avatar's menu. -->
+              <div v-if="view.head.controls" class="thc-shell-head-prefs" data-test="shell-head-prefs">
+                <ThcThemeToggle :value="view.head.controls.theme" :locale="view.lang" data-test="shell-theme" @change="onTheme" />
+                <ThcLanguageMenu :value="view.head.controls.locale" :locale="view.lang" data-test="shell-language" @change="onLocale" />
               </div>
               <slot name="header-actions" />
-              <!-- Under 900 px: the account button and its panel. -->
-              <div v-if="view.head.account" ref="account" class="thc-shell-account" data-test="shell-account" @keydown="onAccountKey" @focusout="onAccountFocusOut">
-                <button
-                  ref="accountButton"
-                  type="button"
-                  class="thc-shell-account-button"
-                  :class="{ 'thc-shell-account-current': view.head.account.current }"
-                  :aria-expanded="accountOpen ? 'true' : 'false'"
-                  :aria-controls="accountOpen ? `${uid}-account` : undefined"
-                  data-test="shell-account-button"
-                  @click="toggleAccount"
-                >
-                  <span class="thc-shell-person" aria-hidden="true">
-                    <template v-if="view.head.account.initials">{{ view.head.account.initials }}</template>
-                    <svg v-else class="thc-shell-icon" viewBox="0 0 24 24" focusable="false">
-                      <circle cx="12" cy="9" r="3.5" />
-                      <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
-                    </svg>
-                  </span>
-                  <span class="thc-shell-hidden">{{ view.head.account.label }}</span>
-                </button>
-                <div v-if="accountOpen" :id="`${uid}-account`" class="thc-shell-account-panel" data-test="shell-account-panel">
-                  <a
-                    v-if="view.head.account.profile"
-                    class="thc-shell-account-row"
-                    :class="{ 'thc-shell-current': view.head.account.profile.current }"
-                    :href="view.head.account.profile.href"
-                    :aria-current="view.head.account.profile.current ? 'page' : undefined"
-                    data-test="shell-account-profile"
-                    @click="follow($event, view.head.account?.profile?.href ?? '')"
-                  >
-                    <span class="thc-shell-person" aria-hidden="true">
-                      <template v-if="view.head.account.profile.initials">{{ view.head.account.profile.initials }}</template>
-                      <svg v-else class="thc-shell-icon" viewBox="0 0 24 24" focusable="false">
-                        <circle cx="12" cy="9" r="3.5" />
-                        <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
-                      </svg>
-                    </span>
-                    <span class="thc-shell-ws-text">
-                      <span v-if="view.head.account.profile.name" class="thc-shell-ws-name" data-test="shell-account-name">{{ view.head.account.profile.name }}</span>
-                      <span class="thc-shell-profile-label">{{ view.head.account.profile.label }}</span>
-                    </span>
-                  </a>
-                  <a
-                    v-if="view.head.account.workspace"
-                    class="thc-shell-account-row"
-                    :class="{ 'thc-shell-current': view.head.account.workspace.current }"
-                    :href="view.head.account.workspace.href"
-                    :aria-current="view.head.account.workspace.current ? 'page' : undefined"
-                    :aria-labelledby="`${uid}-account-ws-switch ${uid}-account-ws-name`"
-                    :aria-describedby="view.head.account.workspace.shown ? `${uid}-account-ws-detail` : undefined"
-                    data-test="shell-account-workspace"
-                    @click="follow($event, view.head.account?.workspace?.href ?? '')"
-                  >
-                    <template v-if="view.head.account.workspace.shown">
-                      <span class="thc-shell-ws-av" :class="view.head.account.workspace.shown.personal ? 'thc-shell-ws-personal' : 'thc-shell-ws-team'" aria-hidden="true">{{
-                        view.head.account.workspace.shown.initial
-                      }}</span>
-                      <span class="thc-shell-ws-text">
-                        <span :id="`${uid}-account-ws-name`" class="thc-shell-ws-name">{{ view.head.account.workspace.shown.name }}</span>
-                        <span :id="`${uid}-account-ws-detail`" class="thc-shell-ws-detail">{{ view.head.account.workspace.shown.detail }}</span>
-                      </span>
-                    </template>
-                    <template v-else>
-                      <span class="thc-shell-ws-av thc-shell-ws-none" aria-hidden="true">
-                        <svg class="thc-shell-icon" viewBox="0 0 24 24" focusable="false">
-                          <rect x="4" y="4" width="7" height="7" rx="1.5" />
-                          <rect x="13" y="4" width="7" height="7" rx="1.5" />
-                          <rect x="4" y="13" width="7" height="7" rx="1.5" />
-                          <rect x="13" y="13" width="7" height="7" rx="1.5" />
-                        </svg>
-                      </span>
-                      <span class="thc-shell-ws-text">
-                        <span :id="`${uid}-account-ws-name`" class="thc-shell-ws-name" data-test="shell-account-choose">{{ view.head.account.workspace.chooseLabel }}</span>
-                      </span>
-                    </template>
-                    <span :id="`${uid}-account-ws-switch`" class="thc-shell-hidden">{{ view.head.account.workspace.switchLabel }}</span>
-                    <svg class="thc-shell-chevron thc-shell-chevron-next" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" /></svg>
-                  </a>
-                  <template v-if="view.head.controls">
-                    <div class="thc-shell-account-group" data-test="shell-account-theme">
-                      <span class="thc-shell-account-label" aria-hidden="true">{{ view.head.account.themeLabel }}</span>
-                      <ThcThemeToggle variant="segmented" :value="view.head.controls.theme" :locale="view.lang" @change="onTheme" />
-                    </div>
-                    <div class="thc-shell-account-group" data-test="shell-account-language">
-                      <span class="thc-shell-account-label" aria-hidden="true">{{ view.head.account.languageLabel }}</span>
-                      <ThcLanguageMenu variant="list" :value="view.head.controls.locale" :locale="view.lang" @change="onLocale" />
-                    </div>
-                  </template>
-                  <a
-                    v-else-if="view.head.appearance"
-                    class="thc-shell-account-row"
-                    :class="{ 'thc-shell-current': view.head.appearance.current }"
-                    :href="view.head.appearance.href"
-                    :aria-current="view.head.appearance.current ? 'page' : undefined"
-                    data-test="shell-account-appearance"
-                    @click="follow($event, view.head.appearance?.href ?? '')"
-                  >
-                    <span class="thc-shell-account-icon" aria-hidden="true">
-                      <svg class="thc-shell-icon" viewBox="0 0 24 24" focusable="false">
-                        <circle cx="12" cy="12" r="8.5" />
-                        <path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5s1.1-6.1 3.5-8.5z" />
-                      </svg>
-                    </span>
-                    <span class="thc-shell-ws-name">{{ view.head.appearance.label }}</span>
-                  </a>
-                </div>
-              </div>
+              <!-- The person, with data only: the avatar and its menu. -->
+              <AvatarMenu
+                v-if="view.head.avatar"
+                ref="avatar"
+                :model="view.head.avatar"
+                :controls="view.head.controls"
+                :narrow="narrow"
+                :lang="view.lang"
+                :read-only="view.readOnly"
+                @follow="follow"
+                @sign-out="onSignOut"
+                @theme="onTheme"
+                @locale="onLocale"
+              />
             </div>
           </div>
 
@@ -733,7 +606,7 @@ onBeforeUnmount(() => {
    column, a white header with the title, the page on grey), in the page's
    one tone (--thc-tone, the root's .thc-tone-* class). Mobile first: under
    900 px the side column hides and the menu lives in the drawer, and the
-   header's theme and language live in the account button's panel. */
+   header's theme and language live in the avatar's menu. */
 
 .thc-shell {
   min-height: 100vh;
@@ -954,8 +827,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.thc-shell-ws-detail,
-.thc-shell-profile-label {
+.thc-shell-ws-detail {
   font-size: 11px;
   color: var(--thc-muted);
   overflow: hidden;
@@ -1202,35 +1074,14 @@ onBeforeUnmount(() => {
   background: var(--thc-app-indigo);
 }
 
-.thc-shell-foot {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-top: 14px;
-  border-top: 1px solid var(--thc-line);
-}
-
-.thc-shell-profile {
-  min-height: 52px;
-  color: var(--thc-text);
-}
-
-.thc-shell-profile .thc-shell-ws-name {
-  font-size: 13px;
-}
-
 /* A kept answer drawn read-only (1.4.0): its links and the selector wait
    for the fresh answer, which replaces it in a moment. */
 .thc-shell[data-read-only='true'] .thc-shell-side a,
 .thc-shell[data-read-only='true'] .thc-shell-drawer a,
 .thc-shell[data-read-only='true'] .thc-shell-tabs a,
+.thc-shell[data-read-only='true'] .thc-shell-avatar-menu a,
 .thc-shell[data-read-only='true'] .thc-shell-ws-button {
   cursor: progress;
-}
-
-.thc-shell-sign-out {
-  font-size: 13px;
 }
 
 .thc-shell-person {
@@ -1240,15 +1091,6 @@ onBeforeUnmount(() => {
   background: var(--thc-tone-tint);
   color: var(--thc-tone);
   font-size: 13px;
-}
-
-.thc-shell-link.thc-shell-current .thc-shell-person {
-  background: var(--thc-tone);
-  color: var(--thc-on-tone);
-}
-
-.thc-shell-link.thc-shell-current .thc-shell-profile-label {
-  color: inherit;
 }
 
 /* ---------- body and header ---------- */
@@ -1372,60 +1214,84 @@ onBeforeUnmount(() => {
   color: var(--thc-muted);
 }
 
-/* The theme and the language: at 900 px and wider only (the account
-   panel holds them below), and never focusable while hidden. */
+/* The theme and the language: at 900 px and wider only (the avatar's menu
+   holds them below), and never focusable while hidden. */
 .thc-shell-head-prefs {
   display: none;
   align-items: center;
   gap: 8px;
 }
 
-/* ---------- the account button and its panel (under 900 px) ---------- */
+/* ---------- the avatar and its menu (since 1.6.0) ---------- */
 
-.thc-shell-account {
+.thc-shell-avatar {
   position: relative;
   flex: 0 0 auto;
 }
 
-.thc-shell-account-button {
-  display: inline-grid;
-  place-items: center;
-  width: var(--thc-target);
+/* Under 900 px the circle alone, a round target; from 900 px the name and
+   a chevron beside it. */
+.thc-shell-avatar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: var(--thc-target);
   height: var(--thc-target);
   padding: 0;
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: inherit;
+  color: var(--thc-text);
   font: inherit;
   cursor: pointer;
 }
 
-.thc-shell-account-button:hover,
-.thc-shell-account-button[aria-expanded='true'] {
+.thc-shell-avatar-button:hover,
+.thc-shell-avatar-button[aria-expanded='true'] {
   background: var(--thc-hover);
 }
 
-.thc-shell-account-button .thc-shell-person {
+.thc-shell-avatar-button .thc-shell-person {
   width: 36px;
   height: 36px;
 }
 
-.thc-shell-account-current .thc-shell-person,
-.thc-shell-account-row.thc-shell-current .thc-shell-person {
+.thc-shell-avatar-current .thc-shell-person {
   background: var(--thc-tone);
   color: var(--thc-on-tone);
 }
 
-.thc-shell-account-panel {
+/* The name is part of the button's name everywhere; it is drawn from 900 px. */
+.thc-shell-avatar-name {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.thc-shell-avatar-chevron {
+  display: none;
+}
+
+.thc-shell-avatar-button[aria-expanded='true'] .thc-shell-avatar-chevron {
+  transform: rotate(180deg);
+}
+
+.thc-shell-avatar-pop {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   z-index: 20;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  width: min(320px, calc(100vw - 20px));
+  width: min(300px, calc(100vw - 20px));
   max-height: calc(100vh - 84px);
   max-height: calc(100dvh - 84px);
   overflow-y: auto;
@@ -1436,72 +1302,204 @@ onBeforeUnmount(() => {
   box-shadow: var(--thc-shadow-pop);
 }
 
-.thc-shell-account-row {
+.thc-shell-avatar-head {
   display: flex;
   align-items: center;
   gap: 12px;
   min-height: 52px;
+  padding: 6px 10px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--thc-line);
+  color: var(--thc-text);
+}
+
+.thc-shell-avatar-head .thc-shell-ws-name {
+  font-size: 14px;
+}
+
+.thc-shell-avatar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.thc-shell-avatar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--thc-target);
   padding: 8px 10px;
   border-radius: var(--thc-radius-nav);
   color: var(--thc-text);
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 1.3;
   text-decoration: none;
+  cursor: pointer;
 }
 
-.thc-shell-account-row:hover {
+.thc-shell-avatar-item .thc-shell-icon {
+  color: var(--thc-muted);
+}
+
+.thc-shell-avatar-item:hover,
+.thc-shell-avatar-item:focus {
   background: var(--thc-hover);
 }
 
-.thc-shell-account-row.thc-shell-current {
+.thc-shell-avatar-item.thc-shell-current {
   background: var(--thc-tone-tint);
+  color: var(--thc-tone);
+  font-weight: 650;
 }
 
-.thc-shell-account-row .thc-shell-ws-text {
+.thc-shell-avatar-item.thc-shell-current .thc-shell-icon {
+  color: inherit;
+}
+
+/* "Sair", in the danger color (tokens.css), on its own tint when pointed or focused. */
+.thc-shell-avatar-out,
+.thc-shell-avatar-out .thc-shell-icon {
+  color: var(--thc-danger);
+}
+
+.thc-shell-avatar-out:hover,
+.thc-shell-avatar-out:focus {
+  background: var(--thc-danger-bg);
+}
+
+.thc-shell-avatar-out[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.thc-shell-avatar-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--thc-line);
+}
+
+/* Under 900 px, for a host with both handlers: the theme toggle and the
+   language's flag side by side, as the header draws them from 900 px,
+   centred in the menu with room between them (the owner, 2026-10-26). */
+.thc-shell-avatar-prefs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 6px 4px;
+}
+
+.thc-shell-avatar-prefs .thc-shell-ctl-toggle:focus,
+.thc-shell-avatar-prefs .thc-shell-ctl-lang-button:focus {
+  background: var(--thc-hover);
+  color: var(--thc-text);
+}
+
+/* The language's choice (since 1.6.0): a modal dialog in the middle of the
+   screen (the browser's own centring of a modal dialog), whose list scrolls
+   on its own once it is longer than the dialog's height. */
+.thc-shell-lang-dialog {
+  width: min(360px, calc(100vw - 32px));
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--thc-line);
+  border-radius: var(--thc-radius-md);
+  background: var(--thc-raised);
+  color: var(--thc-text);
+  box-shadow: var(--thc-shadow-pop);
+}
+
+.thc-shell-lang-dialog::backdrop {
+  /* Older engines give ::backdrop no custom properties: the literal is light's. */
+  background: var(--thc-backdrop, rgb(20 23 46 / 0.42));
+}
+
+.thc-shell-lang-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: min(480px, calc(100vh - 32px));
+  max-height: min(480px, calc(100dvh - 32px));
+}
+
+.thc-shell-lang-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 18px;
+  border-bottom: 1px solid var(--thc-line);
+}
+
+.thc-shell-lang-title {
   flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.3;
 }
 
-.thc-shell-account-icon {
+.thc-shell-lang-close {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 35px;
-  height: 35px;
-  border-radius: 999px;
+  width: var(--thc-target);
+  height: var(--thc-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--thc-radius-pill);
+  background: transparent;
+  color: var(--thc-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.thc-shell-lang-close:hover {
   background: var(--thc-hover);
-  color: var(--thc-muted);
+  color: var(--thc-text);
 }
 
-.thc-shell-account-group {
+.thc-shell-lang-list {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 6px;
-  padding: 12px 6px 4px;
-  border-top: 1px solid var(--thc-line);
+  gap: 2px;
+  min-height: 0;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* A language focused at an edge scrolls in with its focus ring. */
+  scroll-padding-block: 8px;
+  list-style: none;
 }
 
-/* Without data the panel opens on the theme: no divider above it. */
-.thc-shell-account-group:first-child {
-  margin-top: 0;
-  padding-top: 4px;
-  border-top: 0;
-}
-
-.thc-shell-account-label {
-  padding: 0 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--thc-muted);
-}
-
-.thc-shell-account-group .thc-shell-ctl-seg {
-  display: flex;
+.thc-shell-lang-option {
   width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
 }
 
-.thc-shell-account-group .thc-shell-ctl-seg-item {
-  flex: 1 1 0;
-  justify-content: center;
-  padding: 0 8px;
+.thc-shell-lang-list .thc-shell-lang-option[aria-current='true'] {
+  background: var(--thc-tone-tint);
+  color: var(--thc-tone);
+  font-weight: 650;
+}
+
+/* Forced colors replace the tint: the language shown keeps an outline of its own. */
+@media (forced-colors: active) {
+  .thc-shell-lang-list .thc-shell-lang-option[aria-current='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
 
 .thc-shell-action:hover {
@@ -1734,9 +1732,9 @@ onBeforeUnmount(() => {
   }
 }
 
-/* A phone's one header row (the menu button, the title, the theme toggle,
-   the language menu and the profile) fits 375 px: under 400 px the gaps
-   narrow and the title may wrap, and every control keeps its target. */
+/* A phone's one header row (the menu button, the title, the host's
+   actions and the avatar) fits 375 px: under 400 px the gaps narrow and the
+   title may wrap, and every control keeps its target. */
 @media (max-width: 399.98px) {
   .thc-shell-head {
     padding-left: 10px;
@@ -1789,13 +1787,43 @@ onBeforeUnmount(() => {
     background: var(--thc-surface);
   }
 
-  .thc-shell-menu-button,
-  .thc-shell-account {
+  .thc-shell-menu-button {
     display: none;
   }
 
   .thc-shell-head-prefs {
     display: flex;
+  }
+
+  /* The avatar with the person's name beside it. */
+  .thc-shell-avatar-button {
+    height: var(--thc-control);
+    padding: 0 10px 0 2px;
+  }
+
+  .thc-shell-avatar-name {
+    position: static !important;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: hidden;
+    clip: auto;
+    clip-path: none;
+    max-width: 14rem;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+  }
+
+  .thc-shell-avatar-chevron {
+    display: block;
+    width: 14px;
+    height: 14px;
+    margin-left: 0;
+  }
+
+  .thc-shell-avatar-item {
+    min-height: var(--thc-control);
   }
 
   .thc-shell-head {
@@ -1867,7 +1895,8 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .thc-shell-ws-button[aria-expanded='true'] .thc-shell-chevron {
+  .thc-shell-ws-button[aria-expanded='true'] .thc-shell-chevron,
+  .thc-shell-avatar-button[aria-expanded='true'] .thc-shell-avatar-chevron {
     transform: none;
   }
 

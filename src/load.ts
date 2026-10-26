@@ -10,7 +10,10 @@
 //     wrong type, or a console_origin other than the origin asked;
 //   - what comes back is a new object holding only the members the shell
 //     knows, each checked: unknown members are dropped, and nothing of the
-//     answer is ever parsed as HTML or kept anywhere but in memory.
+//     answer is ever parsed as HTML or kept anywhere but in memory;
+//   - account_security_url (since 1.6.0) is optional: one that is missing,
+//     or is not exactly a plain web address (no credentials, query or
+//     fragment), is dropped as null, and the rest of the answer still holds.
 //
 // The caller asks once per document load, never on a timer or in a retry
 // loop (1.1).
@@ -152,6 +155,31 @@ function screenPath(v: unknown): string {
   return v
 }
 
+/** The longest account_security_url kept. */
+const MAX_SECURITY_URL = 256
+
+const SECURITY_PATH = /^\/[A-Za-z0-9_/-]*$/
+
+/**
+ * securityURL is account_security_url when it is exactly a plain address
+ * on a web origin (isWebOrigin: https, or http on a development
+ * *.localhost name): written as the URL parser writes it, with a path of
+ * [A-Za-z0-9_/-] and no "//", and no credentials, query or fragment. Any
+ * other value, a missing one included, is null: the menu then draws no
+ * "Segurança", and nothing else of the answer is refused for it.
+ */
+function securityURL(v: unknown): string | null {
+  if (typeof v !== 'string' || v.length > MAX_SECURITY_URL) return null
+  let u: URL
+  try {
+    u = new URL(v)
+  } catch {
+    return null
+  }
+  if (u.href !== v || !isWebOrigin(u.origin) || u.username !== '' || u.password !== '' || u.search !== '' || u.hash !== '') return null
+  return SECURITY_PATH.test(u.pathname) && !u.pathname.includes('//') ? v : null
+}
+
 function section(v: unknown): ShellSection {
   const o = obj(v)
   return { id: id(o['id']), path: consolePath(o['path']), title: localText(o['title']) }
@@ -244,6 +272,7 @@ export function parseShell(value: unknown, consoleOrigin: string): ShellData | n
       theme,
       workspaces,
       menu: menu(o['menu']),
+      account_security_url: securityURL(o['account_security_url']),
     }
   } catch (err) {
     if (err instanceof Bad) return null
