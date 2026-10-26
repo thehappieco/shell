@@ -82,6 +82,11 @@
   --thc-target: 44px;
   --thc-control: 40px;
   --thc-side-width: 256px;
+  /* The shell's motion (1.6.1): thehappie.co's easing, a little slower to
+     open than to close. Menus, panels and dialogs take these. */
+  --thc-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --thc-motion-open: 240ms;
+  --thc-motion-close: 180ms;
   color-scheme: light dark;
 }
 
@@ -210,4 +215,12 @@
   :root.thc-look-changing::view-transition-new(root) {
     animation: none;
   }
+}
+
+/* Focus after a pointer (input.ts, shell 1.6.1): while the last input was a
+   mouse, a pen or a finger, no focus ring shows, the browser's own included;
+   the next key brings it back where focus is. A text field keeps its ring,
+   which says where the typing goes. */
+:root.thc-shell-input-pointer :focus-visible:not(input, textarea, select, [contenteditable]) {
+  outline: none;
 }

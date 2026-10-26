@@ -18,9 +18,18 @@
 //   - nothing is stored, and nothing runs on a timer: the only listeners are
 //     the selector's, the language menu's and the avatar menu's outside
 //     clicks while they are open, the drawer's width, the theme toggle's
-//     system scheme, each symbol's mouse on its hover host, and the
-//     window's click (to see that the browser follows a link, below) and
-//     pageshow;
+//     system scheme, each symbol's mouse on its hover host, the window's
+//     click (to see that the browser follows a link, below) and pageshow,
+//     and the document's pointerdown and keydown that tell a pointer from
+//     a key (input.ts, since 1.6.1: a focus ring shows after a key only);
+//   - menus, the drawer and the language's dialog open and close with
+//     motion (since 1.6.1: tokens.css's --thc-motion-open and -close, on
+//     thehappie.co's easing; none under reduced motion); a dialog closes
+//     once its exit has run (motion.ts's whenStill), and a press that
+//     continues the one before (a double-click's second, soon and on the
+//     same spot: input.ts's soonAfter) is no new request, on a menu's
+//     button, where a drawer or a dialog just opened, or under a menu that
+//     an entry's press just closed (holdNextPress);
 //   - under 900 px the menu is a modal <dialog> behind the header's menu
 //     button (one header row, as Wappie's console: the button, the title,
 //     the host's actions and the avatar):
@@ -91,7 +100,9 @@ import ThcName from './brand/ThcName.vue'
 import AvatarMenu from './AvatarMenu.vue'
 import ThcLanguageMenu from './controls/ThcLanguageMenu.vue'
 import ThcThemeToggle from './controls/ThcThemeToggle.vue'
+import { holdNextPress, type Press, pressedAt, soonAfter, trackInput } from './input.js'
 import { buildView } from './menu.js'
+import { whenStill } from './motion.js'
 import ShellMenu from './ShellMenu.vue'
 import type { Locale, ShellData, ShellFallback, ShellPlace, ShellResult, Theme } from './types.js'
 
@@ -200,18 +211,48 @@ function skip(): void {
   main.value?.focus()
 }
 
-function openDrawer(): void {
+/** The press on the menu button that opened the drawer, for soonAfter. */
+let drawerPressed: Press | null = null
+
+function openDrawer(event?: MouseEvent): void {
   const d = drawer.value
   if (d === null || drawerOpen.value) return
+  drawerPressed = pressedAt(event)
   drawerOpen.value = true
   if (typeof d.showModal === 'function') d.showModal()
   else d.setAttribute('open', '')
 }
 
-function closeDrawer(): void {
+/** closing says the drawer is sliding out: it closes once still, and opens again only after. */
+let closing = false
+
+/**
+ * closeDrawer slides the drawer out and then closes it (shell 1.6.1), or
+ * closes it at once: now, for a link the browser or the host follows, whose
+ * page must not wait behind a dialog that keeps it inert; and wherever no
+ * motion runs (reduced motion, an engine without the Web Animations API).
+ */
+function closeDrawer(now = false): void {
   const d = drawer.value
-  if (d !== null && d.open) d.close()
-  else drawerClosed()
+  if (d === null || !d.open) {
+    drawerClosed()
+    return
+  }
+  if (now) {
+    closing = false
+    d.classList.remove('thc-shell-closing')
+    d.close()
+    return
+  }
+  if (closing) return
+  closing = true
+  d.classList.add('thc-shell-closing')
+  whenStill(d, () => {
+    if (!closing) return
+    closing = false
+    d.classList.remove('thc-shell-closing')
+    if (d.open) d.close()
+  })
 }
 
 /**
@@ -239,9 +280,37 @@ function onDrawerKey(event: KeyboardEvent): void {
   closeDrawer()
 }
 
-/** A click on the backdrop lands on the dialog itself, outside its panel. */
+/**
+ * A press that continues the one on the menu button (a double-click's
+ * second, or a quick tap) lands where the drawer is sliding in: on its
+ * brand, a link or the backdrop. It is held back before it reaches any of
+ * them (1.6.1): its mousedown moves no focus from where the drawer put it,
+ * and its click neither follows a link nor closes the drawer.
+ */
+function onDrawerDown(event: MouseEvent): void {
+  if (soonAfter(event, drawerPressed)) event.preventDefault()
+}
+
+function onDrawerPress(event: MouseEvent): void {
+  if (!soonAfter(event, drawerPressed)) return
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+/**
+ * A click on the backdrop lands on the dialog itself, outside its panel. It
+ * and the close button close the drawer, and a double-click's second press
+ * reaches nothing under it once it is gone (holdNextPress).
+ */
 function onDrawerClick(event: MouseEvent): void {
-  if (event.target === drawer.value) closeDrawer()
+  if (event.target !== drawer.value) return
+  holdNextPress(event)
+  closeDrawer()
+}
+
+function onCloseClick(event: MouseEvent): void {
+  holdNextPress(event)
+  closeDrawer()
 }
 
 /** samePath is a link's path, query and fragment when it is on this document's origin, else null. */
@@ -304,10 +373,13 @@ function follow(event: MouseEvent, href: string): void {
     event.preventDefault()
     return
   }
+  // A double-click on a link acts once: its second press reaches nothing
+  // the first one's menu, drawer or page left under the pointer (1.6.1).
+  holdNextPress(event)
   const path = routedPath(event, href)
   if (drawerOpen.value) {
     routed = path !== null
-    closeDrawer()
+    closeDrawer(true)
   }
   if (path !== null && props.navigate !== undefined) {
     event.preventDefault()
@@ -339,21 +411,34 @@ function onSignOut(event: MouseEvent, href: string): void {
   follow(event, href)
 }
 
+/** The press whose click the browser is following, while the mark shows. */
+let leavingPress: Press | null = null
+
 /** dropLeaving gives the page back: the browser did not go (stopped, refused) or the host routed. */
 function dropLeaving(): void {
   pending = null
+  leavingPress = null
   leaving.value = false
 }
-// While the mark shows, the next key or press in this page means the
-// browser did not go (the person stopped it, or refused to leave): the page
-// is theirs again.
+
+/**
+ * While the mark shows, the next key or press in this page means the
+ * browser did not go (the person stopped it, or refused to leave): the page
+ * is theirs again. The second press of the double-click that left is not
+ * one: it continues the press the browser is following (soonAfter), and
+ * reaches nothing (holdNextPress), so the mark stays (1.6.1).
+ */
+function onInputWhileLeaving(event: Event): void {
+  if (event.type === 'pointerdown' && soonAfter(event, leavingPress)) return
+  dropLeaving()
+}
 watch(leaving, now => {
   if (now) {
-    document.addEventListener('keydown', dropLeaving, true)
-    document.addEventListener('pointerdown', dropLeaving, true)
+    document.addEventListener('keydown', onInputWhileLeaving, true)
+    document.addEventListener('pointerdown', onInputWhileLeaving, true)
   } else {
-    document.removeEventListener('keydown', dropLeaving, true)
-    document.removeEventListener('pointerdown', dropLeaving, true)
+    document.removeEventListener('keydown', onInputWhileLeaving, true)
+    document.removeEventListener('pointerdown', onInputWhileLeaving, true)
   }
 })
 
@@ -365,7 +450,9 @@ watch(leaving, now => {
 function onWindowClick(event: Event): void {
   if (event !== pending) return
   pending = null
-  if (!event.defaultPrevented) leaving.value = true
+  if (event.defaultPrevented) return
+  leavingPress = pressedAt(event)
+  leaving.value = true
 }
 
 /** onPageShow drops the mark when the browser brings this page back from its back/forward cache. */
@@ -415,6 +502,7 @@ function onWide(e: MediaQueryListEvent): void {
   if (e.matches) closeDrawer()
 }
 onMounted(() => {
+  trackInput()
   wide = globalThis.matchMedia?.('(min-width: 900px)') ?? null
   narrow.value = wide?.matches !== true
   wide?.addEventListener?.('change', onWide)
@@ -426,8 +514,8 @@ onBeforeUnmount(() => {
   wide?.removeEventListener?.('change', onWide)
   window.removeEventListener('click', onWindowClick)
   window.removeEventListener('pageshow', onPageShow)
-  document.removeEventListener('keydown', dropLeaving, true)
-  document.removeEventListener('pointerdown', dropLeaving, true)
+  document.removeEventListener('keydown', onInputWhileLeaving, true)
+  document.removeEventListener('pointerdown', onInputWhileLeaving, true)
 })
 </script>
 
@@ -455,10 +543,12 @@ onBeforeUnmount(() => {
       @close="drawerClosed"
       @cancel="onCancel"
       @keydown="onDrawerKey"
+      @mousedown.capture="onDrawerDown"
+      @click.capture="onDrawerPress"
       @click="onDrawerClick"
     >
       <div class="thc-shell-drawer-panel" :aria-busy="view.readOnly ? 'true' : undefined">
-        <button type="button" class="thc-shell-close" data-test="shell-close" @click="closeDrawer">
+        <button type="button" class="thc-shell-close" data-test="shell-close" @click="onCloseClick">
           <svg class="thc-shell-icon thc-shell-icon-lg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" /></svg>
           <span class="thc-shell-hidden">{{ view.words.closeMenu }}</span>
         </button>
@@ -728,6 +818,40 @@ onBeforeUnmount(() => {
   min-height: 100%;
 }
 
+/* The drawer slides in from the left over a fading backdrop (1.6.1), and
+   slides out before it closes (Shell.vue's closeDrawer, through motion.ts's
+   whenStill). ::backdrop may not see custom properties in older engines,
+   hence the literals beside them. */
+.thc-shell-drawer[open] {
+  transform: none;
+  transition: transform var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
+.thc-shell-drawer[open]::backdrop {
+  opacity: 1;
+  transition: opacity var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
+@starting-style {
+  .thc-shell-drawer[open] {
+    transform: translateX(-100%);
+  }
+
+  .thc-shell-drawer[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.thc-shell-drawer.thc-shell-closing {
+  transform: translateX(-100%);
+  transition: transform var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
+.thc-shell-drawer.thc-shell-closing::backdrop {
+  opacity: 0;
+  transition: opacity var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
 .thc-shell-drawer .thc-shell-menu {
   padding: 22px 16px 18px;
 }
@@ -889,6 +1013,7 @@ onBeforeUnmount(() => {
 
 .thc-shell-chevron {
   color: var(--thc-muted);
+  transition: transform var(--thc-motion-open) var(--thc-ease);
 }
 
 .thc-shell-check {
@@ -913,6 +1038,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--thc-line);
   border-radius: var(--thc-radius-md);
   box-shadow: var(--thc-shadow-pop);
+  transform-origin: top center;
 }
 
 .thc-shell-ws-all {
@@ -1300,6 +1426,29 @@ onBeforeUnmount(() => {
   border: 1px solid var(--thc-line);
   border-radius: var(--thc-radius-md);
   box-shadow: var(--thc-shadow-pop);
+  transform-origin: top right;
+}
+
+/* The menus' motion (1.6.1): the avatar's menu and the workspace selector
+   fade and drop in, and fade out a little faster; nothing under them takes
+   a click while they leave. */
+.thc-shell-pop-enter-active {
+  transition:
+    opacity var(--thc-motion-open) var(--thc-ease),
+    transform var(--thc-motion-open) var(--thc-ease);
+}
+
+.thc-shell-pop-leave-active {
+  transition:
+    opacity var(--thc-motion-close) var(--thc-ease),
+    transform var(--thc-motion-close) var(--thc-ease);
+  pointer-events: none;
+}
+
+.thc-shell-pop-enter-from,
+.thc-shell-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
 }
 
 .thc-shell-avatar-head {
@@ -1346,7 +1495,7 @@ onBeforeUnmount(() => {
 }
 
 .thc-shell-avatar-item:hover,
-.thc-shell-avatar-item:focus {
+:where(:root:not(.thc-shell-input-pointer)) .thc-shell-avatar-item:focus-visible {
   background: var(--thc-hover);
 }
 
@@ -1367,7 +1516,7 @@ onBeforeUnmount(() => {
 }
 
 .thc-shell-avatar-out:hover,
-.thc-shell-avatar-out:focus {
+:where(:root:not(.thc-shell-input-pointer)) .thc-shell-avatar-out:focus-visible {
   background: var(--thc-danger-bg);
 }
 
@@ -1393,8 +1542,8 @@ onBeforeUnmount(() => {
   padding: 6px 4px;
 }
 
-.thc-shell-avatar-prefs .thc-shell-ctl-toggle:focus,
-.thc-shell-avatar-prefs .thc-shell-ctl-lang-button:focus {
+:where(:root:not(.thc-shell-input-pointer)) .thc-shell-avatar-prefs .thc-shell-ctl-toggle:focus-visible,
+:where(:root:not(.thc-shell-input-pointer)) .thc-shell-avatar-prefs .thc-shell-ctl-lang-button:focus-visible {
   background: var(--thc-hover);
   color: var(--thc-text);
 }
@@ -1419,6 +1568,45 @@ onBeforeUnmount(() => {
 .thc-shell-lang-dialog::backdrop {
   /* Older engines give ::backdrop no custom properties: the literal is light's. */
   background: var(--thc-backdrop, rgb(20 23 46 / 0.42));
+}
+
+/* The language's dialog rises and fades in (1.6.1), and fades out before
+   it closes (AvatarMenu.vue's closeLanguages). */
+.thc-shell-lang-dialog[open] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    transform var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
+.thc-shell-lang-dialog[open]::backdrop {
+  opacity: 1;
+  transition: opacity var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
+@starting-style {
+  .thc-shell-lang-dialog[open] {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+
+  .thc-shell-lang-dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.thc-shell-lang-dialog.thc-shell-closing {
+  opacity: 0;
+  transform: scale(0.98);
+  transition:
+    opacity var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    transform var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
+.thc-shell-lang-dialog.thc-shell-closing::backdrop {
+  opacity: 0;
+  transition: opacity var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-lang-panel {
@@ -1898,6 +2086,21 @@ onBeforeUnmount(() => {
   .thc-shell-ws-button[aria-expanded='true'] .thc-shell-chevron,
   .thc-shell-avatar-button[aria-expanded='true'] .thc-shell-avatar-chevron {
     transform: none;
+  }
+
+  /* No menu, drawer or dialog moves: each appears and goes at once. */
+  .thc-shell-chevron,
+  .thc-shell-pop-enter-active,
+  .thc-shell-pop-leave-active,
+  .thc-shell-drawer[open],
+  .thc-shell-drawer[open]::backdrop,
+  .thc-shell-drawer.thc-shell-closing,
+  .thc-shell-drawer.thc-shell-closing::backdrop,
+  .thc-shell-lang-dialog[open],
+  .thc-shell-lang-dialog[open]::backdrop,
+  .thc-shell-lang-dialog.thc-shell-closing,
+  .thc-shell-lang-dialog.thc-shell-closing::backdrop {
+    transition: none;
   }
 
   /* The loading mark stays still: its arc alone says it. */

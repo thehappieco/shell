@@ -10,6 +10,10 @@
 // and puts its side effects behind whenActivated; the shell stores nothing.
 // Since 1.5.0 it gives the look's crossfade (motion.ts: lookChanger, over
 // changeLook), which a host shows every change of theme or language through.
+// Since 1.6.1 it tells a pointer from a key (input.ts: trackInput), so a
+// focus ring shows after a key only, and its menus and dialogs move; an
+// app's own menus may use the same rule against a double toggle (soonAfter,
+// pressedAt, holdNextPress) and wait for a closing one (whenStill).
 //
 // It imports vue and its own files only: never vue-router, the protocol
 // crypto, the kit or a host's code (web/test/shell/static.spec.ts). The
@@ -19,7 +23,8 @@
 export { default as ThcShell } from './Shell.vue'
 export { type ActivationDocument, activated, isPrerendering, whenActivated } from './activation.js'
 export { KEPT_SHELL_KEY, keptText, MAX_KEPT_TEXT, readKept } from './kept.js'
-export { changeLook, LOOK_CHANGING, type LookChanger, type LookDocument, lookChanger, type LookValues } from './motion.js'
+export { holdNextPress, NEAR_PX, POINTER_INPUT, type Press, pressedAt, SOON_MS, soonAfter, trackInput } from './input.js'
+export { changeLook, LOOK_CHANGING, type LookChanger, type LookDocument, lookChanger, type LookValues, whenStill } from './motion.js'
 export { default as ThcLettering } from './brand/ThcLettering.vue'
 export { default as ThcLockup } from './brand/ThcLockup.vue'
 export { default as ThcMark } from './brand/ThcMark.vue'

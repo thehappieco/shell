@@ -38,6 +38,7 @@
 // button, the control that keeps focus.
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { shellText } from '../i18n.js'
+import { holdNextPress, type Press, pressedAt, soonAfter } from '../input.js'
 import { type Locale, LOCALES } from '../types.js'
 import { LOCALE_NAMES } from './locales.js'
 import ThcFlag from './ThcFlag.vue'
@@ -87,12 +88,40 @@ function close(focusButton: boolean): void {
   if (focusButton) button.value?.focus()
 }
 
-function choose(l: Locale): void {
+function choose(l: Locale, event?: MouseEvent): void {
+  if (event !== undefined) holdNextPress(event)
   close(true)
   if (l !== props.value) emit('change', l)
 }
 
-function onButtonClick(): void {
+/** The pointer's last press on the button, for soonAfter. */
+let pressed: Press | null = null
+/** byButton says the button's own press is what opens or closes the menu now. */
+let byButton = false
+// Opened or closed any other way (a key, Escape, a press outside, a link),
+// the next press on the button is a new request, however soon it comes.
+watch(
+  open,
+  () => {
+    if (!byButton) pressed = null
+    byButton = false
+  },
+  { flush: 'sync' },
+)
+
+/**
+ * The button's click. A press that continues the one before (the second of
+ * a double-click: soonAfter) is no new request (shell 1.6.1); Safari moved
+ * focus off the menu on it, so focus goes back to the language shown.
+ */
+function onButtonClick(event: MouseEvent): void {
+  if (soonAfter(event, pressed)) {
+    const all = items()
+    if (open.value && !all.some(i => i === document.activeElement)) (all.find(i => i.dataset['value'] === props.value) ?? all[0])?.focus()
+    return
+  }
+  pressed = pressedAt(event)
+  byButton = true
   if (open.value) close(false)
   else void openMenu()
 }
@@ -150,9 +179,16 @@ function onMenuKey(event: KeyboardEvent): void {
  * two items, an item) never moves focus (the list's mousedown is
  * prevented), so the item that has it keeps the menu's keys.
  */
+/**
+ * Focus leaving the menu closes it. Safari focuses no button on a press:
+ * pressing this very button moves focus to the nearest focusable ancestor
+ * (the page's main area, which holds the menu), and closing then would
+ * open it again on the click (shell 1.6.1). Focus going to an ancestor is
+ * no leaving; a press outside the menu closes it through onOutside.
+ */
 function onFocusOut(event: FocusEvent): void {
   const to = event.relatedTarget as Node | null
-  if (open.value && to !== null && root.value !== null && !root.value.contains(to)) open.value = false
+  if (open.value && to !== null && root.value !== null && !root.value.contains(to) && !to.contains(root.value)) open.value = false
 }
 
 function onOutside(event: Event): void {
@@ -193,11 +229,21 @@ watch(
   { flush: 'post' },
 )
 
+// A press outside closes it too, with any button: a right or middle press
+// fires no click (1.6.1).
 watch(open, now => {
-  if (now) document.addEventListener('click', onOutside, true)
-  else document.removeEventListener('click', onOutside, true)
+  if (now) {
+    document.addEventListener('click', onOutside, true)
+    document.addEventListener('pointerdown', onOutside, true)
+  } else {
+    document.removeEventListener('click', onOutside, true)
+    document.removeEventListener('pointerdown', onOutside, true)
+  }
 })
-onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onOutside, true)
+  document.removeEventListener('pointerdown', onOutside, true)
+})
 </script>
 
 <template>
@@ -262,7 +308,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
           :lang="l"
           data-test="language-option"
           :data-value="l"
-          @click="choose(l)"
+          @click="choose(l, $event)"
         >
           <ThcFlag :locale="l" :size="22" />
           <span class="thc-shell-ctl-item-name">{{ LOCALE_NAMES[l] }}</span>
@@ -326,6 +372,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
 .thc-shell-ctl-item:focus-visible {
   outline: var(--thc-focus-width) solid var(--thc-tone);
   outline-offset: 2px;
+}
+
+.thc-shell-ctl-chevron {
+  transition: transform var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-ctl-chevron,
@@ -422,7 +472,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
 }
 
 .thc-shell-ctl-item:hover,
-.thc-shell-ctl-item:focus {
+:where(:root:not(.thc-shell-input-pointer)) .thc-shell-ctl-item:focus-visible {
   background: var(--thc-hover);
 }
 
@@ -462,11 +512,17 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
   background: var(--thc-tone-tint);
 }
 
-.thc-shell-ctl-pop-enter-active,
+.thc-shell-ctl-pop-enter-active {
+  transition:
+    opacity var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    transform var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+}
+
 .thc-shell-ctl-pop-leave-active {
   transition:
-    opacity 160ms ease,
-    transform 160ms ease;
+    opacity var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    transform var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  pointer-events: none;
 }
 
 .thc-shell-ctl-pop-enter-from,
@@ -493,7 +549,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
 
 @media (prefers-reduced-motion: reduce) {
   .thc-shell-ctl-pop-enter-active,
-  .thc-shell-ctl-pop-leave-active {
+  .thc-shell-ctl-pop-leave-active,
+  .thc-shell-ctl-chevron {
     transition: none;
   }
 

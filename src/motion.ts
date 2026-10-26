@@ -162,3 +162,25 @@ export function changeLook(update: () => void, doc: LookDocument | undefined = g
   void vt.finished.then(done, done)
   return vt.updateCallbackDone.then(() => undefined)
 }
+
+/**
+ * whenStill runs then once el has finished the CSS transitions and
+ * animations running on el itself now: at once when none runs (no motion,
+ * reduced motion, an engine without the Web Animations API), else when the
+ * last one ends or is cancelled. Animations inside el (a symbol's
+ * choreography, a spinner) are not waited for, nor is one that never ends.
+ * The shell's dialogs close through it after their exit (shell 1.6.1), so
+ * they slide or fade out instead of vanishing, with no timer: the
+ * browser's own animations say when they are done.
+ */
+export function whenStill(el: Element, then: () => void): void {
+  const running =
+    typeof el.getAnimations === 'function'
+      ? el.getAnimations().filter(a => a.playState !== 'finished' && a.effect?.getComputedTiming?.().endTime !== Infinity)
+      : []
+  if (running.length === 0) {
+    then()
+    return
+  }
+  void Promise.all(running.map(a => a.finished.then(() => undefined, () => undefined))).then(then)
+}

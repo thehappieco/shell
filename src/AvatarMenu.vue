@@ -50,9 +50,13 @@
 // While a kept answer is drawn read-only the menu opens, its links follow
 // nothing, and "Sair" says it is disabled; the theme and the language keep
 // working. Text is interpolated, never parsed as HTML; nothing is stored,
-// nothing runs on a timer.
+// nothing runs on a timer. Since 1.6.1 the menu fades and drops in and out
+// (a <Transition>), the dialog fades out before it closes (motion.ts's
+// whenStill), and the second click of a double-click is no new request.
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import type { AvatarModel } from './menu.js'
+import { holdNextPress, type Press, pressedAt, soonAfter } from './input.js'
+import { whenStill } from './motion.js'
 import ShellIcon from './ShellIcon.vue'
 import ThcFlag from './controls/ThcFlag.vue'
 import ThcThemeToggle from './controls/ThcThemeToggle.vue'
@@ -84,6 +88,7 @@ const button = ref<HTMLButtonElement | null>(null)
 const menu = ref<HTMLElement | null>(null)
 const languages = ref<HTMLDialogElement | null>(null)
 const languageList = ref<HTMLElement | null>(null)
+const themeToggle = ref<InstanceType<typeof ThcThemeToggle> | null>(null)
 /** languagesOpen says the language's dialog is open: its list is drawn only then. */
 const languagesOpen = ref(false)
 
@@ -112,7 +117,44 @@ function close(focusButton: boolean): void {
 
 defineExpose({ close })
 
-function onButtonClick(): void {
+/**
+ * A press on the menu's head, a gap or a separator would move focus out of
+ * it (to the page's main area), leaving its keys dead: it is held back. A
+ * press on a link or a button goes on, so a link drags and a button takes
+ * focus as everywhere else (1.6.1); where Safari gives a button none, the
+ * toggle takes it back (onTheme), and the flag closes the menu anyway.
+ */
+function onPopPress(event: MouseEvent): void {
+  if (!(event.target instanceof Element) || event.target.closest('a[href], button') === null) event.preventDefault()
+}
+
+/** The pointer's last press on the button, for soonAfter. */
+let pressed: Press | null = null
+/** byButton says the button's own press is what opens or closes the menu now. */
+let byButton = false
+// Opened or closed any other way (a key, Escape, a press outside, a link),
+// the next press on the button is a new request, however soon it comes.
+watch(
+  open,
+  () => {
+    if (!byButton) pressed = null
+    byButton = false
+  },
+  { flush: 'sync' },
+)
+
+/**
+ * The button's click. A press that continues the one before (the second of
+ * a double-click: soonAfter) is no new request (shell 1.6.1); Safari moved
+ * focus off the menu on it, so focus goes back in.
+ */
+function onButtonClick(event: MouseEvent): void {
+  if (soonAfter(event, pressed)) {
+    if (open.value && menu.value !== null && !menu.value.contains(document.activeElement)) items()[0]?.focus()
+    return
+  }
+  pressed = pressedAt(event)
+  byButton = true
   if (open.value) close(false)
   else void openMenu('first')
 }
@@ -192,8 +234,15 @@ function onMenuKey(event: KeyboardEvent): void {
   }
 }
 
-/** onTheme is the toggle's next mode: the host shows it, or does not, and the menu stays open. */
+/**
+ * onTheme is the toggle's next mode: the host shows it, or does not, and the
+ * menu stays open. Safari focuses no button on a press: focus may have gone
+ * to the page's main area, which holds the menu, where its keys never
+ * arrive, so it goes back to the toggle (1.6.1).
+ */
 function onTheme(theme: Theme): void {
+  const toggle = (themeToggle.value?.$el as HTMLElement | undefined) ?? null
+  if (open.value && toggle !== null && menu.value !== null && !menu.value.contains(document.activeElement)) toggle.focus()
   if (theme !== props.controls?.theme) emit('theme', theme)
 }
 
@@ -203,9 +252,10 @@ function options(): HTMLElement[] {
 }
 
 /** openLanguages is the flag's click: the menu closes, then the dialog opens on the language shown. */
-async function openLanguages(): Promise<void> {
+async function openLanguages(event?: MouseEvent): Promise<void> {
   const d = languages.value
   if (d === null || languagesOpen.value) return
+  languagesPressed = pressedAt(event)
   close(false)
   languagesOpen.value = true
   await nextTick()
@@ -217,11 +267,46 @@ async function openLanguages(): Promise<void> {
   ;(all.find(o => o.dataset['value'] === props.controls?.locale) ?? all[0])?.focus()
 }
 
-/** closeLanguages closes the dialog; its close event gives focus back. */
+/** languagesClosing says the dialog is fading out: it closes once still, and opens again only after. */
+let languagesClosing = false
+/** The press on the flag that opened the dialog, for soonAfter. */
+let languagesPressed: Press | null = null
+
+/**
+ * A press that continues the one on the flag (a double-click's second, or
+ * a quick tap) lands where the dialog just opened: on the backdrop, or on a
+ * language under the flag on a phone. It is held back before it reaches
+ * anything (1.6.1): its mousedown moves no focus off the language shown
+ * (Safari would put it on the dialog itself, where the list's keys never
+ * arrive), and its click neither closes the dialog nor picks a language.
+ */
+function onLanguagesDown(event: MouseEvent): void {
+  if (soonAfter(event, languagesPressed)) event.preventDefault()
+}
+
+function onLanguagesPress(event: MouseEvent): void {
+  if (!soonAfter(event, languagesPressed)) return
+  event.preventDefault()
+  event.stopPropagation()
+  const all = options()
+  if (!all.includes(document.activeElement as HTMLElement)) (all.find(o => o.dataset['value'] === props.controls?.locale) ?? all[0])?.focus()
+}
+
+/** closeLanguages fades the dialog out and then closes it (shell 1.6.1); its close event gives focus back. */
 function closeLanguages(): void {
   const d = languages.value
-  if (d !== null && d.open) d.close()
-  else languagesClosed()
+  if (d === null || !d.open) {
+    languagesClosed()
+    return
+  }
+  if (languagesClosing) return
+  languagesClosing = true
+  d.classList.add('thc-shell-closing')
+  whenStill(d, () => {
+    languagesClosing = false
+    d.classList.remove('thc-shell-closing')
+    if (d.open) d.close()
+  })
 }
 
 /** languagesClosed is the dialog's close event, however it closed: focus goes back to the avatar's button. */
@@ -232,7 +317,8 @@ function languagesClosed(): void {
 }
 
 /** pickLanguage is a choice in the dialog: it closes, and the host shows the language, or does not. */
-function pickLanguage(l: Locale): void {
+function pickLanguage(l: Locale, event?: MouseEvent): void {
+  if (event !== undefined) holdNextPress(event)
   closeLanguages()
   if (l !== props.controls?.locale) emit('locale', l)
 }
@@ -254,9 +340,20 @@ function onLanguagesKey(event: KeyboardEvent): void {
   closeLanguages()
 }
 
-/** A click on the backdrop lands on the dialog itself, outside its panel. */
+/**
+ * A click on the backdrop lands on the dialog itself, outside its panel. It
+ * and the close button close the dialog, and a double-click's second press
+ * reaches nothing under it once it is gone (holdNextPress).
+ */
 function onLanguagesClick(event: MouseEvent): void {
-  if (event.target === languages.value) closeLanguages()
+  if (event.target !== languages.value) return
+  holdNextPress(event)
+  closeLanguages()
+}
+
+function onLanguagesCloseClick(event: MouseEvent): void {
+  holdNextPress(event)
+  closeLanguages()
 }
 
 function onLanguageListKey(event: KeyboardEvent): void {
@@ -316,24 +413,41 @@ function signOut(event: MouseEvent, href: string): void {
     return
   }
   close(false)
+  holdNextPress(event)
   emit('signOut', event, href)
 }
 
-/** onFocusOut closes the menu when focus moves on to anything outside it. */
+/**
+ * Focus leaving the menu closes it. Safari focuses no button on a press:
+ * pressing this very button moves focus to the nearest focusable ancestor
+ * (the page's main area, which holds the menu), and closing then would
+ * open it again on the click (shell 1.6.1). Focus going to an ancestor is
+ * no leaving; a press outside the menu closes it through onOutside.
+ */
 function onFocusOut(event: FocusEvent): void {
   const to = event.relatedTarget as Node | null
-  if (open.value && to !== null && root.value !== null && !root.value.contains(to)) open.value = false
+  if (open.value && to !== null && root.value !== null && !root.value.contains(to) && !to.contains(root.value)) open.value = false
 }
 
 function onOutside(event: Event): void {
   if (root.value !== null && !root.value.contains(event.target as Node)) open.value = false
 }
 
+// A press outside closes it too, with any button: a right or middle press
+// fires no click (1.6.1).
 watch(open, now => {
-  if (now) document.addEventListener('click', onOutside, true)
-  else document.removeEventListener('click', onOutside, true)
+  if (now) {
+    document.addEventListener('click', onOutside, true)
+    document.addEventListener('pointerdown', onOutside, true)
+  } else {
+    document.removeEventListener('click', onOutside, true)
+    document.removeEventListener('pointerdown', onOutside, true)
+  }
 })
-onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onOutside, true)
+  document.removeEventListener('pointerdown', onOutside, true)
+})
 </script>
 
 <template>
@@ -363,97 +477,99 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
       <span v-if="model.name" class="thc-shell-avatar-name" data-test="shell-avatar-name">{{ model.name }}</span>
       <svg class="thc-shell-chevron thc-shell-avatar-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6" /></svg>
     </button>
-    <div v-if="open" class="thc-shell-avatar-pop" data-test="shell-avatar-pop">
-      <div class="thc-shell-avatar-head" aria-hidden="true" data-test="shell-avatar-head">
-        <span class="thc-shell-person">
-          <template v-if="model.initials">{{ model.initials }}</template>
-          <svg v-else class="thc-shell-icon" viewBox="0 0 24 24" focusable="false">
-            <circle cx="12" cy="9" r="3.5" />
-            <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
-          </svg>
-        </span>
-        <span class="thc-shell-ws-name">{{ model.name ?? model.label }}</span>
-      </div>
-      <ul :id="`${uid}-menu`" ref="menu" class="thc-shell-avatar-menu" role="menu" :aria-labelledby="`${uid}-button`" data-test="shell-avatar-menu" @keydown="onMenuKey" @keyup="holdSpace">
-        <li v-for="l in model.items" :key="l.id" role="none">
-          <a
-            class="thc-shell-avatar-item"
-            :class="{ 'thc-shell-current': l.current }"
-            role="menuitem"
-            tabindex="-1"
-            :href="l.href"
-            :aria-current="l.current ?? undefined"
-            data-test="shell-avatar-item"
-            :data-id="l.id"
-            @click="follow($event, l.href)"
-          >
-            <ShellIcon v-if="l.icon" :icon="l.icon" />
-            <span class="thc-shell-link-label">{{ l.label }}</span>
-          </a>
-        </li>
-        <li v-if="model.appearance" role="none">
-          <a
-            class="thc-shell-avatar-item"
-            :class="{ 'thc-shell-current': model.appearance.current }"
-            role="menuitem"
-            tabindex="-1"
-            :href="model.appearance.href"
-            :aria-current="model.appearance.current ? 'page' : undefined"
-            data-test="shell-appearance"
-            @click="follow($event, model.appearance?.href ?? '')"
-          >
-            <svg class="thc-shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <circle cx="12" cy="12" r="8.5" />
-              <path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5s1.1-6.1 3.5-8.5z" />
+    <Transition name="thc-shell-pop">
+      <div v-if="open" class="thc-shell-avatar-pop" data-test="shell-avatar-pop" @mousedown="onPopPress">
+        <div class="thc-shell-avatar-head" aria-hidden="true" data-test="shell-avatar-head">
+          <span class="thc-shell-person">
+            <template v-if="model.initials">{{ model.initials }}</template>
+            <svg v-else class="thc-shell-icon" viewBox="0 0 24 24" focusable="false">
+              <circle cx="12" cy="9" r="3.5" />
+              <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
             </svg>
-            <span class="thc-shell-link-label">{{ model.appearance.label }}</span>
-          </a>
-        </li>
-        <template v-if="controls && narrow">
+          </span>
+          <span class="thc-shell-ws-name">{{ model.name ?? model.label }}</span>
+        </div>
+        <ul :id="`${uid}-menu`" ref="menu" class="thc-shell-avatar-menu" role="menu" :aria-labelledby="`${uid}-button`" data-test="shell-avatar-menu" @keydown="onMenuKey" @keyup="holdSpace">
+          <li v-for="l in model.items" :key="l.id" role="none">
+            <a
+              class="thc-shell-avatar-item"
+              :class="{ 'thc-shell-current': l.current }"
+              role="menuitem"
+              tabindex="-1"
+              :href="l.href"
+              :aria-current="l.current ?? undefined"
+              data-test="shell-avatar-item"
+              :data-id="l.id"
+              @click="follow($event, l.href)"
+            >
+              <ShellIcon v-if="l.icon" :icon="l.icon" />
+              <span class="thc-shell-link-label">{{ l.label }}</span>
+            </a>
+          </li>
+          <li v-if="model.appearance" role="none">
+            <a
+              class="thc-shell-avatar-item"
+              :class="{ 'thc-shell-current': model.appearance.current }"
+              role="menuitem"
+              tabindex="-1"
+              :href="model.appearance.href"
+              :aria-current="model.appearance.current ? 'page' : undefined"
+              data-test="shell-appearance"
+              @click="follow($event, model.appearance?.href ?? '')"
+            >
+              <svg class="thc-shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5s1.1-6.1 3.5-8.5z" />
+              </svg>
+              <span class="thc-shell-link-label">{{ model.appearance.label }}</span>
+            </a>
+          </li>
+          <template v-if="controls && narrow">
+            <li role="separator" class="thc-shell-avatar-sep" />
+            <li role="none">
+              <!-- The theme toggle and the language's flag, as the header draws them from 900 px. -->
+              <div class="thc-shell-avatar-prefs" role="group" :aria-label="model.prefsLabel" data-test="shell-avatar-prefs">
+                <ThcThemeToggle ref="themeToggle" :value="controls.theme" :locale="lang" role="menuitem" tabindex="-1" data-test="shell-avatar-theme" @change="onTheme" />
+                <button
+                  type="button"
+                  class="thc-shell-ctl-lang-button"
+                  role="menuitem"
+                  tabindex="-1"
+                  aria-haspopup="dialog"
+                  :title="languageTitle"
+                  :data-value="controls.locale"
+                  data-test="shell-avatar-language"
+                  @click="openLanguages"
+                >
+                  <ThcFlag :locale="controls.locale" :size="22" />
+                  <span class="thc-shell-hidden">{{ model.languageLabel }}: </span>
+                  <span class="thc-shell-hidden" :lang="controls.locale">{{ LOCALE_NAMES[controls.locale] }}</span>
+                  <svg class="thc-shell-ctl-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+              </div>
+            </li>
+          </template>
           <li role="separator" class="thc-shell-avatar-sep" />
           <li role="none">
-            <!-- The theme toggle and the language's flag, as the header draws them from 900 px. -->
-            <div class="thc-shell-avatar-prefs" role="group" :aria-label="model.prefsLabel" data-test="shell-avatar-prefs">
-              <ThcThemeToggle :value="controls.theme" :locale="lang" role="menuitem" tabindex="-1" data-test="shell-avatar-theme" @change="onTheme" />
-              <button
-                type="button"
-                class="thc-shell-ctl-lang-button"
-                role="menuitem"
-                tabindex="-1"
-                aria-haspopup="dialog"
-                :title="languageTitle"
-                :data-value="controls.locale"
-                data-test="shell-avatar-language"
-                @click="openLanguages"
-              >
-                <ThcFlag :locale="controls.locale" :size="22" />
-                <span class="thc-shell-hidden">{{ model.languageLabel }}: </span>
-                <span class="thc-shell-hidden" :lang="controls.locale">{{ LOCALE_NAMES[controls.locale] }}</span>
-                <svg class="thc-shell-ctl-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6" /></svg>
-              </button>
-            </div>
+            <a
+              class="thc-shell-avatar-item thc-shell-avatar-out"
+              role="menuitem"
+              tabindex="-1"
+              :href="model.signOut.href"
+              :aria-disabled="readOnly ? 'true' : undefined"
+              data-test="shell-sign-out"
+              @click="signOut($event, model.signOut.href)"
+            >
+              <svg class="thc-shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+                <path d="M10 16l-4-4 4-4M6 12h10" />
+              </svg>
+              <span class="thc-shell-link-label">{{ model.signOut.label }}</span>
+            </a>
           </li>
-        </template>
-        <li role="separator" class="thc-shell-avatar-sep" />
-        <li role="none">
-          <a
-            class="thc-shell-avatar-item thc-shell-avatar-out"
-            role="menuitem"
-            tabindex="-1"
-            :href="model.signOut.href"
-            :aria-disabled="readOnly ? 'true' : undefined"
-            data-test="shell-sign-out"
-            @click="signOut($event, model.signOut.href)"
-          >
-            <svg class="thc-shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
-              <path d="M10 16l-4-4 4-4M6 12h10" />
-            </svg>
-            <span class="thc-shell-link-label">{{ model.signOut.label }}</span>
-          </a>
-        </li>
-      </ul>
-    </div>
+        </ul>
+      </div>
+    </Transition>
     <!-- The language's choice, in the middle of the screen; its list is drawn while it is open. -->
     <dialog
       v-if="controls"
@@ -464,12 +580,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
       @close="languagesClosed"
       @cancel="onLanguagesCancel"
       @keydown="onLanguagesKey"
+      @mousedown.capture="onLanguagesDown"
+      @click.capture="onLanguagesPress"
       @click="onLanguagesClick"
     >
       <div class="thc-shell-lang-panel">
         <div class="thc-shell-lang-head">
           <h2 :id="`${uid}-languages`" class="thc-shell-lang-title" data-test="shell-language-title">{{ model.languageLabel }}</h2>
-          <button type="button" class="thc-shell-lang-close" data-test="shell-language-close" @click="closeLanguages">
+          <button type="button" class="thc-shell-lang-close" data-test="shell-language-close" @click="onLanguagesCloseClick">
             <svg class="thc-shell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" /></svg>
             <span class="thc-shell-hidden">{{ model.closeLabel }}</span>
           </button>
@@ -483,7 +601,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onOutside, true))
               :lang="l"
               data-test="language-option"
               :data-value="l"
-              @click="pickLanguage(l)"
+              @click="pickLanguage(l, $event)"
             >
               <ThcFlag :locale="l" :size="22" />
               <span class="thc-shell-ctl-item-name">{{ LOCALE_NAMES[l] }}</span>

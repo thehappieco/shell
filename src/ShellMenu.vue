@@ -28,6 +28,7 @@
 // drawn read-only (since 1.4.0) the selector's button says it is disabled
 // and does not open, and Shell.vue follows no link.
 import { onBeforeUnmount, ref, useId, watch } from 'vue'
+import { type Press, pressedAt, soonAfter } from './input.js'
 import ThcLockup from './brand/ThcLockup.vue'
 import ThcMark from './brand/ThcMark.vue'
 import ThcName from './brand/ThcName.vue'
@@ -66,8 +67,30 @@ function follow(event: MouseEvent, href: string): void {
   emit('follow', event, href)
 }
 
-/** toggle opens or closes the list, unless the kept answer is drawn read-only. */
-function toggle(readOnly: boolean): void {
+/** The pointer's last press on the button, for soonAfter. */
+let pressed: Press | null = null
+/** byButton says the button's own press is what opens or closes the menu now. */
+let byButton = false
+// Opened or closed any other way (a key, Escape, a press outside, a link),
+// the next press on the button is a new request, however soon it comes.
+watch(
+  open,
+  () => {
+    if (!byButton) pressed = null
+    byButton = false
+  },
+  { flush: 'sync' },
+)
+
+/**
+ * toggle opens or closes the list, unless the kept answer is drawn
+ * read-only; a press that continues the one before (the second of a
+ * double-click: soonAfter) is no new request (1.6.1).
+ */
+function toggle(readOnly: boolean, event?: MouseEvent): void {
+  if (event !== undefined && soonAfter(event, pressed)) return
+  pressed = pressedAt(event)
+  byButton = true
   open.value = readOnly ? false : !open.value
 }
 </script>
@@ -97,7 +120,7 @@ function toggle(readOnly: boolean): void {
           :aria-describedby="model.selector.shown ? `${uid}-ws-detail` : undefined"
           :aria-disabled="model.readOnly ? 'true' : undefined"
           data-test="shell-workspace-button"
-          @click="toggle(model.readOnly)"
+          @click="toggle(model.readOnly, $event)"
         >
           <template v-if="model.selector.shown">
             <span class="thc-shell-ws-av" :class="model.selector.shown.personal ? 'thc-shell-ws-personal' : 'thc-shell-ws-team'" aria-hidden="true">{{
@@ -119,38 +142,40 @@ function toggle(readOnly: boolean): void {
           <span :id="`${uid}-ws-switch`" class="thc-shell-hidden">{{ model.selector.switchLabel }}</span>
           <svg class="thc-shell-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6" /></svg>
         </button>
-        <div v-show="open" :id="`${uid}-ws-panel`" class="thc-shell-ws-panel" data-test="shell-workspace-panel">
-          <ul class="thc-shell-list">
-            <li v-for="w in model.selector.items" :key="w.id">
-              <a
-                v-if="w.href"
-                class="thc-shell-ws"
-                :href="w.href"
-                :aria-current="w.current ?? undefined"
-                data-test="shell-workspace-item"
-                :data-id="w.id"
-                @click="follow($event, w.href)"
-              >
-                <span class="thc-shell-ws-av thc-shell-ws-av-sm" :class="w.personal ? 'thc-shell-ws-personal' : 'thc-shell-ws-team'" aria-hidden="true">{{
-                  w.initial
-                }}</span>
-                <span class="thc-shell-ws-text">
-                  <span class="thc-shell-ws-name">{{ w.name }}</span>
-                  <span class="thc-shell-ws-detail">{{ w.detail }}</span>
-                </span>
-                <svg v-if="w.current" class="thc-shell-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12l5 5 9-10" /></svg>
-              </a>
-            </li>
-          </ul>
-          <a
-            class="thc-shell-ws thc-shell-ws-all"
-            :href="model.selector.allHref"
-            :aria-current="model.selector.allCurrent ? 'page' : undefined"
-            data-test="shell-all-workspaces"
-            @click="follow($event, model.selector.allHref)"
-            >{{ model.selector.allLabel }}</a
-          >
-        </div>
+        <Transition name="thc-shell-pop">
+          <div v-show="open" :id="`${uid}-ws-panel`" class="thc-shell-ws-panel" :inert="!open" data-test="shell-workspace-panel">
+            <ul class="thc-shell-list">
+              <li v-for="w in model.selector.items" :key="w.id">
+                <a
+                  v-if="w.href"
+                  class="thc-shell-ws"
+                  :href="w.href"
+                  :aria-current="w.current ?? undefined"
+                  data-test="shell-workspace-item"
+                  :data-id="w.id"
+                  @click="follow($event, w.href)"
+                >
+                  <span class="thc-shell-ws-av thc-shell-ws-av-sm" :class="w.personal ? 'thc-shell-ws-personal' : 'thc-shell-ws-team'" aria-hidden="true">{{
+                    w.initial
+                  }}</span>
+                  <span class="thc-shell-ws-text">
+                    <span class="thc-shell-ws-name">{{ w.name }}</span>
+                    <span class="thc-shell-ws-detail">{{ w.detail }}</span>
+                  </span>
+                  <svg v-if="w.current" class="thc-shell-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12l5 5 9-10" /></svg>
+                </a>
+              </li>
+            </ul>
+            <a
+              class="thc-shell-ws thc-shell-ws-all"
+              :href="model.selector.allHref"
+              :aria-current="model.selector.allCurrent ? 'page' : undefined"
+              data-test="shell-all-workspaces"
+              @click="follow($event, model.selector.allHref)"
+              >{{ model.selector.allLabel }}</a
+            >
+          </div>
+        </Transition>
       </div>
 
       <nav class="thc-shell-nav" :aria-label="model.navLabel" data-test="shell-nav">
