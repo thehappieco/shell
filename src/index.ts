@@ -23,7 +23,7 @@
 export { default as ThcShell } from './Shell.vue'
 export { type ActivationDocument, activated, isPrerendering, whenActivated } from './activation.js'
 export { KEPT_SHELL_KEY, keptText, MAX_KEPT_TEXT, readKept } from './kept.js'
-export { holdNextPress, NEAR_PX, POINTER_INPUT, type Press, pressedAt, SOON_MS, soonAfter, trackInput } from './input.js'
+export { holdNextPress, NEAR_PX, POINTER_INPUT, PRESS_FOCUS_MS, type Press, pressedAt, SOON_MS, soonAfter, trackInput } from './input.js'
 export { changeLook, LOOK_CHANGING, type LookChanger, type LookDocument, lookChanger, type LookValues, whenStill } from './motion.js'
 export { default as ThcLettering } from './brand/ThcLettering.vue'
 export { default as ThcLockup } from './brand/ThcLockup.vue'

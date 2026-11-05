@@ -15,6 +15,7 @@ defineProps<{ icon: string }>()
       <path d="M18 14.8c2 .7 3.2 2.4 3.5 5.2" />
     </template>
     <template v-else-if="icon === 'key'"><circle cx="8" cy="15" r="4" /><path d="M11 12l9-9M16 7l3 3M14 9l2 2" /></template>
+    <template v-else-if="icon === 'code'"><path d="M8.5 7.5L4 12l4.5 4.5M15.5 7.5L20 12l-4.5 4.5M13.5 5l-3 14" /></template>
     <template v-else-if="icon === 'card'"><rect x="3" y="5.5" width="18" height="13" rx="2.5" /><path d="M3 10h18" /><path d="M7 15h4" /></template>
     <template v-else-if="icon === 'disk'">
       <ellipse cx="12" cy="6" rx="8" ry="3" />

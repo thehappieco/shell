@@ -149,6 +149,13 @@ const props = withDefaults(
      * sign-out page. Without it, "Sair" is that link.
      */
     signOut?: () => void
+    /**
+     * Whether an in-shell app's screen tabs, and the selector's link that
+     * keeps a screen, name the console's own page of the screen (the
+     * console only; menu.ts's screensThroughConsole). An app passes
+     * nothing: its tabs name its own screens.
+     */
+    screensThroughConsole?: boolean
   }>(),
   {
     subject: undefined,
@@ -163,6 +170,7 @@ const props = withDefaults(
     readOnly: false,
     beforeSignOut: undefined,
     signOut: undefined,
+    screensThroughConsole: false,
   },
 )
 
@@ -181,6 +189,7 @@ const view = computed(() =>
     theme: props.theme,
     initial: props.initial,
     readOnly: props.readOnly,
+    screensThroughConsole: props.screensThroughConsole,
   }),
 )
 

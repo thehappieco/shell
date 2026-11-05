@@ -11,11 +11,25 @@
 // and its title, say the mode now and the next one. The icon swaps with a
 // short rotate and fade.
 //
+// A double-click moves it one step, not two (as the language menu's button,
+// input.ts's soonAfter): a pointer's click that continues the one before
+// (under SOON_MS after it, within NEAR_PX of it) is no new request, and
+// changes nothing. Safari focuses no button on a press: if the first click
+// left focus on the toggle (the avatar's menu puts it back there), the
+// second puts it back too, so the menu's keys go on working. A click from a
+// key (Enter, Space: detail 0) always acts, and so does a click once that
+// moment has passed. Where the host shows the change through the look's
+// crossfade (motion.ts), the second press lands on <html> and never reaches
+// the toggle at all; the avatar's menu then keeps itself open and focus
+// where it was (AvatarMenu.vue's onOutside).
+//
 // The segmented variant (My account) draws the three modes with their icons
 // and words as a radio group: one tab stop, on the chosen mode; the arrow
 // keys ask for the next or the previous one, and focus follows the mode
 // the host shows once it has answered, so a change the host drops leaves
-// focus where the choice still is.
+// focus where the choice still is. A radio asks for the mode it names, never
+// for the next one, so its double-click asks for that mode alone (the chosen
+// one asks for nothing) and needs no guard.
 //
 // The rules it enforces: it only asks (change) and shows what the host
 // passes back (value): the host applies and saves. Vue only: no storage, no
@@ -26,6 +40,7 @@
 // aria-describedby, aria-labelledby) land on the button, or on the group.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { shellText } from '../i18n.js'
+import { type Press, pressedAt, soonAfter } from '../input.js'
 import { type Locale, type Theme, THEMES } from '../types.js'
 import { nextTheme, prefersDark } from './cycle.js'
 import ThemeIcon from './ThemeIcon.vue'
@@ -42,6 +57,7 @@ const props = withDefaults(
 )
 const emit = defineEmits<{ change: [theme: Theme] }>()
 
+const toggle = ref<HTMLButtonElement | null>(null)
 const group = ref<HTMLElement | null>(null)
 /** systemDark is the system's scheme, kept for the toggle's name; a click reads it again. */
 const systemDark = ref(prefersDark())
@@ -52,9 +68,27 @@ const toggleLabel = computed(() =>
   shellText(props.locale, 'themeNow', { mode: modeName(props.value), next: modeName(nextTheme(props.value, systemDark.value)) }),
 )
 
-function onToggle(): void {
+/** The pointer's last press on the toggle, for soonAfter. */
+let pressed: Press | null = null
+/** focusedAfter says the toggle had focus once its last press was answered. */
+let focusedAfter = false
+
+/**
+ * The toggle's click asks for the next mode. A click that continues the
+ * pointer's press before (the second of a double-click: soonAfter) is no
+ * new request (Mailie's review of 1.6.1): it asks for nothing, and only
+ * gives focus back to the toggle if the first click left it there.
+ */
+function onToggle(event: MouseEvent): void {
+  const el = toggle.value
+  if (soonAfter(event, pressed)) {
+    if (focusedAfter && el !== null && globalThis.document?.activeElement !== el) el.focus()
+    return
+  }
+  pressed = pressedAt(event)
   systemDark.value = prefersDark()
   emit('change', nextTheme(props.value, systemDark.value))
+  focusedAfter = el !== null && globalThis.document?.activeElement === el
 }
 
 function isTheme(v: unknown): v is Theme {
@@ -112,6 +146,7 @@ onBeforeUnmount(() => scheme?.removeEventListener?.('change', onScheme))
 <template>
   <button
     v-if="variant === 'toggle'"
+    ref="toggle"
     type="button"
     class="thc-shell-ctl-toggle"
     :aria-label="toggleLabel"

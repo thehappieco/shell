@@ -11,7 +11,10 @@
 //     passes both handlers), then the avatar, and, for an app, its tabs: the
 //     overview, the console's AI tab, then each screen the person's role
 //     reaches, or one tab that opens the app's own page while it is not in
-//     the shell;
+//     the shell; on a host that reaches them through the console
+//     (screensThroughConsole: the console), an in-shell app's screen tabs,
+//     and the selector's link that keeps a screen, name the console's own
+//     page of the screen (hopPath) instead of the app's;
 //   - the avatar's menu (since 1.6.0): the person's initials and name, the
 //     Minha conta group's links, "Aparência e idioma" (a link to the
 //     profile) for a host that cannot keep a change, and "Sair", to the
@@ -42,7 +45,7 @@
 
 import { NAMES, PRODUCT_BRAND_IDS, type ProductBrandId } from './brand/marks.js'
 import { type ShellKey, localText, shellText } from './i18n.js'
-import { APP_AI_TAB, checkReturnPath, consoleHomeURL, consoleURL, hopPath, screenURL, signInURL, signOutURL, visibleScreens } from './paths.js'
+import { APP_AI_TAB, checkReturnPath, consoleHomeURL, consoleURL, hopPath, isWorkspaceId, screenURL, signInURL, signOutURL, visibleScreens } from './paths.js'
 import type {
   AppColor,
   Locale,
@@ -61,6 +64,7 @@ export const SECTION_ICONS: Readonly<Record<string, string>> = Object.freeze({
   general: 'home',
   members: 'users',
   access: 'key',
+  'api-keys': 'code',
   plan: 'card',
   storage: 'disk',
   activity: 'clock',
@@ -254,6 +258,15 @@ export interface ShellInput {
   initial?: ShellData | null | undefined
   /** Whether a kept answer is drawn read-only (the console, until its fresh answer arrives). */
   readOnly?: boolean | undefined
+  /**
+   * Whether an in-shell app's screens are reached through the console's own
+   * page of each (the console only; the settings part, decision 0054): its
+   * screen tabs and the selector's same-place link for a screen then name
+   * the console's hop path (hopPath), which draws the app's settings when
+   * the console keeps them, and goes on to the app's screen otherwise. An
+   * app passes nothing: its tabs name its own screens.
+   */
+  screensThroughConsole?: boolean | undefined
 }
 
 /**
@@ -352,6 +365,16 @@ function readyView(
   const aiTab = app !== null && tab === APP_AI_TAB
   const screen = app !== null && tab !== null && !aiTab ? (app.screens.find(s => s.id === tab) ?? null) : null
   const isSection = (s: ShellSection) => place.kind === 'console' && place.section === s.id
+  /**
+   * screenLink is where a screen of the page's app leads in workspace wid:
+   * the app's screen, or, for a host that reaches an in-shell app's screens
+   * through the console (screensThroughConsole), the console's page of it.
+   */
+  const screenLink = (s: ShellScreen, wid: string | null): string | null => {
+    if (app === null) return null
+    if (input.screensThroughConsole !== true || !app.in_shell) return screenURL(app, s, wid)
+    return isWorkspaceId(wid) ? `${origin}${hopPath(app.id, s.id, wid)}` : null
+  }
   const workspaceSection = place.kind === 'console' ? (menu.workspace.find(isSection) ?? null) : null
   const accountSection = place.kind === 'console' ? (menu.account.find(isSection) ?? (isSection(menu.profile) ? menu.profile : null)) : null
   // Any console page that is not one of a workspace's sections is the account's.
@@ -393,7 +416,7 @@ function readyView(
     if (workspaceSection !== null) return consoleURL(origin, workspaceSection.path, wid)
     if (app !== null) {
       if (aiTab) return consoleURL(origin, app.ai, wid)
-      if (screen !== null) return screenURL(app, screen, wid)
+      if (screen !== null) return screenLink(screen, wid)
       return consoleURL(origin, app.overview, wid)
     }
     return general === null ? `${origin}${menu.workspaces_path}` : consoleURL(origin, general.path, wid)
@@ -462,7 +485,7 @@ function readyView(
     if (ai !== null) tabs.push({ id: APP_AI_TAB, href: ai, label: tx('ai'), current: aiTab, newTab: false, note: null })
     if (app.in_shell) {
       for (const s of visibleScreens(app, role)) {
-        const href = screenURL(app, s, linkId)
+        const href = screenLink(s, linkId)
         if (href === null) continue
         tabs.push(screenTab(s, href, screen?.id === s.id, lang))
       }

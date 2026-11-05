@@ -21,9 +21,12 @@
 //     as a click does: a link is followed, the theme moves on in place;
 //     Escape closes it and returns focus to the button, and goes no
 //     further; Tab closes it and focus moves on;
-//   - a click outside closes it (one capture listener, added only while it
-//     is open), and so do focus leaving it, a link, "Sair", and whatever
-//     Shell.vue closes it for (another page, the window crossing 900 px).
+//   - a press outside closes it (capture listeners on the document, added
+//     only while it is open), and so do focus leaving it, a link, "Sair",
+//     and whatever Shell.vue closes it for (another page, the window
+//     crossing 900 px). A press during the look's crossfade is no press
+//     outside: it lands on <html>, reaches nothing the person sees, closes
+//     nothing and moves no focus (onOutside).
 //
 // The theme and the language (under 900 px, for a host with both handlers)
 // are one row of two icon buttons, as the header draws them from 900 px:
@@ -56,7 +59,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import type { AvatarModel } from './menu.js'
 import { holdNextPress, type Press, pressedAt, soonAfter } from './input.js'
-import { whenStill } from './motion.js'
+import { LOOK_CHANGING, whenStill } from './motion.js'
 import ShellIcon from './ShellIcon.vue'
 import ThcFlag from './controls/ThcFlag.vue'
 import ThcThemeToggle from './controls/ThcThemeToggle.vue'
@@ -429,24 +432,44 @@ function onFocusOut(event: FocusEvent): void {
   if (open.value && to !== null && root.value !== null && !root.value.contains(to) && !to.contains(root.value)) open.value = false
 }
 
+/**
+ * inCrossfade says event, a press, came during the look's crossfade
+ * (motion.ts's changeLook, LOOK_CHANGING on <html>): the browser then
+ * hit-tests the transition's picture, so every press lands on <html> and
+ * reaches nothing the person sees. The second click of a double-click on
+ * the menu's theme toggle is one: its first click started the crossfade
+ * (Mailie's review of 1.6.1).
+ */
+function inCrossfade(event: Event): boolean {
+  const html = document.documentElement
+  return event.target === html && html.classList.contains(LOOK_CHANGING)
+}
+
+/**
+ * onOutside is a press anywhere while the menu is open: one outside it
+ * closes it. One during the crossfade closes nothing, and its mousedown
+ * moves no focus, so focus stays where it was in the menu and its keys go
+ * on working.
+ */
 function onOutside(event: Event): void {
-  if (root.value !== null && !root.value.contains(event.target as Node)) open.value = false
+  if (inCrossfade(event)) {
+    if (event.type === 'mousedown') event.preventDefault()
+    return
+  }
+  if (event.type !== 'mousedown' && root.value !== null && !root.value.contains(event.target as Node)) open.value = false
 }
 
 // A press outside closes it too, with any button: a right or middle press
-// fires no click (1.6.1).
+// fires no click (1.6.1). Its mousedown is watched only for the crossfade.
+const OUTSIDE = ['click', 'pointerdown', 'mousedown'] as const
 watch(open, now => {
-  if (now) {
-    document.addEventListener('click', onOutside, true)
-    document.addEventListener('pointerdown', onOutside, true)
-  } else {
-    document.removeEventListener('click', onOutside, true)
-    document.removeEventListener('pointerdown', onOutside, true)
+  for (const type of OUTSIDE) {
+    if (now) document.addEventListener(type, onOutside, true)
+    else document.removeEventListener(type, onOutside, true)
   }
 })
 onBeforeUnmount(() => {
-  document.removeEventListener('click', onOutside, true)
-  document.removeEventListener('pointerdown', onOutside, true)
+  for (const type of OUTSIDE) document.removeEventListener(type, onOutside, true)
 })
 </script>
 

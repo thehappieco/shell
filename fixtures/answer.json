@@ -49,6 +49,15 @@
         }
       },
       {
+        "id": "api-keys",
+        "path": "/workspaces/{workspace}/api-keys",
+        "title": {
+          "pt-BR": "Chaves de API",
+          "en": "API keys",
+          "es": "Claves de API"
+        }
+      },
+      {
         "id": "plan",
         "path": "/workspaces/{workspace}/plan",
         "title": {
