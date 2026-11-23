@@ -95,7 +95,7 @@
 //   look older than it is. A press's own focus comes well within that, in
 //   Chromium, Firefox and WebKit alike: on the press itself, or once a menu
 //   or dialog it opened or closed has run its motion (the language dialog
-//   gives focus back about 200 ms after the click that closed it); Safari
+//   gives focus back about 250 ms after the click that closed it); Safari
 //   rings where a modal dialog a click opened puts focus, with no
 //   relatedTarget when nothing here had focus, at once. It does not matter
 //   whether the press moved focus: a second press on what already has
@@ -211,7 +211,7 @@ function ringed(target: EventTarget | null): boolean {
  * focus from outside this document is still taken for that press's own, in
  * ms, from when the document handled the press: five times the latest one
  * the engines put (a dialog giving focus back once its motion has run,
- * about 200 ms after the press).
+ * about 250 ms after the press).
  */
 export const PRESS_FOCUS_MS = 1000
 

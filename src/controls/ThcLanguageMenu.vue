@@ -375,7 +375,7 @@ onBeforeUnmount(() => {
 }
 
 .thc-shell-ctl-chevron {
-  transition: transform var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  transition: transform var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-ctl-chevron,
@@ -514,14 +514,14 @@ onBeforeUnmount(() => {
 
 .thc-shell-ctl-pop-enter-active {
   transition:
-    opacity var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
-    transform var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+    opacity var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    transform var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-ctl-pop-leave-active {
   transition:
-    opacity var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
-    transform var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+    opacity var(--thc-motion-close, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    transform var(--thc-motion-close, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
   pointer-events: none;
 }
 

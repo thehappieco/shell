@@ -69,6 +69,7 @@ export {
   type LocalText,
   ROLES,
   type Role,
+  SECURITY_PLACE,
   type ShellApp,
   type ShellData,
   type ShellFallback,

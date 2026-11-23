@@ -215,16 +215,6 @@
               "en": "Permissions",
               "es": "Permisos"
             }
-          },
-          {
-            "id": "api-keys",
-            "path": "/console/api-keys?workspace={workspace}",
-            "min_role": "admin",
-            "title": {
-              "pt-BR": "Chaves de API",
-              "en": "API keys",
-              "es": "Claves de API"
-            }
           }
         ]
       },

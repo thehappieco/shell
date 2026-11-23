@@ -12,7 +12,8 @@
 //     overview, the console's AI tab, then each screen the person's role
 //     reaches, or one tab that opens the app's own page while it is not in
 //     the shell; on a host that reaches them through the console
-//     (screensThroughConsole: the console), an in-shell app's screen tabs,
+//     (screensThroughConsole: the console, and an app whose screens the
+//     console draws), an in-shell app's screen tabs,
 //     and the selector's link that keeps a screen, name the console's own
 //     page of the screen (hopPath) instead of the app's;
 //   - the avatar's menu (since 1.6.0): the person's initials and name, the
@@ -46,17 +47,18 @@
 import { NAMES, PRODUCT_BRAND_IDS, type ProductBrandId } from './brand/marks.js'
 import { type ShellKey, localText, shellText } from './i18n.js'
 import { APP_AI_TAB, checkReturnPath, consoleHomeURL, consoleURL, hopPath, isWorkspaceId, screenURL, signInURL, signOutURL, visibleScreens } from './paths.js'
-import type {
-  AppColor,
-  Locale,
-  ShellData,
-  ShellFallback,
-  ShellPlace,
-  ShellResult,
-  ShellScreen,
-  ShellSection,
-  ShellWorkspace,
-  Theme,
+import {
+  type AppColor,
+  type Locale,
+  SECURITY_PLACE,
+  type ShellData,
+  type ShellFallback,
+  type ShellPlace,
+  type ShellResult,
+  type ShellScreen,
+  type ShellSection,
+  type ShellWorkspace,
+  type Theme,
 } from './types.js'
 
 /** The icons the menu knows, by section id; any other section gets a plain dot. */
@@ -260,11 +262,13 @@ export interface ShellInput {
   readOnly?: boolean | undefined
   /**
    * Whether an in-shell app's screens are reached through the console's own
-   * page of each (the console only; the settings part, decision 0054): its
-   * screen tabs and the selector's same-place link for a screen then name
-   * the console's hop path (hopPath), which draws the app's settings when
-   * the console keeps them, and goes on to the app's screen otherwise. An
-   * app passes nothing: its tabs name its own screens.
+   * page of each (the settings part, decision 0054): its screen tabs and the
+   * selector's same-place link for a screen then name the console's hop
+   * path (hopPath), which draws the app's settings when the console keeps
+   * them, and goes on to the app's screen otherwise, or waits for one the
+   * console alone serves. The console passes it; since 1.7.0 an app whose
+   * screens the console draws may pass it on its own pages too (on its act
+   * pages, for one). Without it, the tabs name the app's own screens.
    */
   screensThroughConsole?: boolean | undefined
 }
@@ -398,11 +402,14 @@ function readyView(
   // Minha conta (since 1.6.0): Perfil (the data's profile), the account's
   // pages, then Segurança, id.'s account page, when the data names one.
   const security = data.account_security_url ?? null
+  // id.'s account page draws the shell at the place 'security' (decision
+  // 0062): Segurança is then this page, and the header names it.
+  const onSecurity = security !== null && place.kind === 'console' && place.section === SECURITY_PLACE
   const accountLinks: MenuLink[] = [
     ...sectionLinks([menu.profile, ...menu.account]),
     ...(security === null
       ? []
-      : [{ id: 'security', href: security, label: tx('security'), current: null, icon: SECTION_ICONS['security'] ?? 'dot', app: null, newTab: false, note: null }]),
+      : [{ id: 'security', href: security, label: tx('security'), current: (onSecurity ? 'page' : null) as Current, icon: SECTION_ICONS['security'] ?? 'dot', app: null, newTab: false, note: null }]),
   ]
   const groups: MenuGroup[] = [
     { id: 'workspace', label: tx('groupWorkspace'), app: null, links: sectionLinks(menu.workspace) },
@@ -470,6 +477,7 @@ function readyView(
   if (workspaceSection !== null) label = localText(workspaceSection.title, lang)
   else if (accountSection !== null) label = localText(accountSection.title, lang)
   else if (place.kind === 'console' && place.section === 'workspaces') label = tx('workspaces')
+  else if (onSecurity) label = tx('security')
   else if (app !== null) label = app.name
   else label = input.title !== undefined && input.title !== null && input.title !== '' ? input.title : tx('brand')
   let title = label
@@ -544,7 +552,9 @@ function fallbackHead(
   const fb = input.fallback ?? null
   const screenId = place.kind === 'app' ? place.screen : null
   const screen = fb?.screens.find(s => s.id === screenId) ?? null
-  let title = screen?.title ?? fb?.name ?? own?.name ?? tx('brand')
+  // id.'s account page (SECURITY_PLACE) is Segurança in every mode.
+  const security = place.kind === 'console' && place.section === SECURITY_PLACE ? tx('security') : null
+  let title = screen?.title ?? fb?.name ?? own?.name ?? security ?? tx('brand')
   if (input.title !== undefined && input.title !== null && input.title !== '') title = input.title
   let app: AppMark | null = null
   if (fb !== null) app = { letter: fb.letter, color: fb.color, brand: appBrand(fb.app) }

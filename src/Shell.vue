@@ -151,9 +151,10 @@ const props = withDefaults(
     signOut?: () => void
     /**
      * Whether an in-shell app's screen tabs, and the selector's link that
-     * keeps a screen, name the console's own page of the screen (the
-     * console only; menu.ts's screensThroughConsole). An app passes
-     * nothing: its tabs name its own screens.
+     * keeps a screen, name the console's own page of the screen (menu.ts's
+     * screensThroughConsole): the console passes it, and since 1.7.0 an app
+     * whose screens the console draws may pass it on its own pages too.
+     * Without it, the tabs name the app's own screens.
      */
     screensThroughConsole?: boolean
   }>(),
@@ -191,6 +192,16 @@ const view = computed(() =>
     readOnly: props.readOnly,
     screensThroughConsole: props.screensThroughConsole,
   }),
+)
+
+/**
+ * prefsAlone: under 900 px the header keeps the theme and the language when
+ * no avatar will come to hold them (signed out of the console, the console
+ * unavailable, another account), never while loading, when the avatar may
+ * still come and take them.
+ */
+const prefsAlone = computed(
+  () => view.value.head.avatar === null && (view.value.mode === 'signed-out' || view.value.mode === 'unavailable' || view.value.mode === 'other-account'),
 )
 
 function onTheme(theme: Theme): void {
@@ -613,8 +624,13 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <div class="thc-shell-actions">
-              <!-- The theme and the language, at 900 px and wider; under it they are in the avatar's menu. -->
-              <div v-if="view.head.controls" class="thc-shell-head-prefs" data-test="shell-head-prefs">
+              <!-- The theme and the language, at 900 px and wider; under it they are in the avatar's menu, or here when no avatar will come (signed out, unavailable, another account). -->
+              <div
+                v-if="view.head.controls"
+                class="thc-shell-head-prefs"
+                :class="{ 'thc-shell-head-prefs-alone': prefsAlone }"
+                data-test="shell-head-prefs"
+              >
                 <ThcThemeToggle :value="view.head.controls.theme" :locale="view.lang" data-test="shell-theme" @change="onTheme" />
                 <ThcLanguageMenu :value="view.head.controls.locale" :locale="view.lang" data-test="shell-language" @change="onLocale" />
               </div>
@@ -833,12 +849,12 @@ onBeforeUnmount(() => {
    hence the literals beside them. */
 .thc-shell-drawer[open] {
   transform: none;
-  transition: transform var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  transition: transform var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-drawer[open]::backdrop {
   opacity: 1;
-  transition: opacity var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  transition: opacity var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 @starting-style {
@@ -853,12 +869,12 @@ onBeforeUnmount(() => {
 
 .thc-shell-drawer.thc-shell-closing {
   transform: translateX(-100%);
-  transition: transform var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  transition: transform var(--thc-motion-close, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-drawer.thc-shell-closing::backdrop {
   opacity: 0;
-  transition: opacity var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  transition: opacity var(--thc-motion-close, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-drawer .thc-shell-menu {
@@ -1350,11 +1366,17 @@ onBeforeUnmount(() => {
 }
 
 /* The theme and the language: at 900 px and wider only (the avatar's menu
-   holds them below), and never focusable while hidden. */
+   holds them below), and never focusable while hidden. When no avatar will
+   come (signed out, unavailable, another account) nothing else holds them,
+   so they stay at every width. */
 .thc-shell-head-prefs {
   display: none;
   align-items: center;
   gap: 8px;
+}
+
+.thc-shell-head-prefs.thc-shell-head-prefs-alone {
+  display: flex;
 }
 
 /* ---------- the avatar and its menu (since 1.6.0) ---------- */
@@ -1585,13 +1607,13 @@ onBeforeUnmount(() => {
   opacity: 1;
   transform: none;
   transition:
-    opacity var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
-    transform var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+    opacity var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    transform var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-lang-dialog[open]::backdrop {
   opacity: 1;
-  transition: opacity var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  transition: opacity var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 @starting-style {
@@ -1609,13 +1631,13 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: scale(0.98);
   transition:
-    opacity var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
-    transform var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+    opacity var(--thc-motion-close, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    transform var(--thc-motion-close, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-lang-dialog.thc-shell-closing::backdrop {
   opacity: 0;
-  transition: opacity var(--thc-motion-close, 180ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+  transition: opacity var(--thc-motion-close, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-lang-panel {

@@ -106,6 +106,13 @@ export type ShellResult = { status: 'ready'; data: ShellData } | { status: 'sign
  * console's overview of that app, or "ai" (APP_AI_TAB) for the console's AI
  * tab of it, a name no screen may take.
  */
+/**
+ * SECURITY_PLACE is the console place of id.'s account page (decision 0062):
+ * a host there passes { kind: 'console', section: SECURITY_PLACE }, and the
+ * menu's Segurança is the page. No console section takes this id.
+ */
+export const SECURITY_PLACE = 'security'
+
 export type ShellPlace = { kind: 'console'; section: string } | { kind: 'app'; app: string; screen: string | null }
 
 export interface ShellFallbackScreen {

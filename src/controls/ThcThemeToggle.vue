@@ -238,8 +238,8 @@ onBeforeUnmount(() => scheme?.removeEventListener?.('change', onScheme))
 .thc-shell-ctl-spin-enter-active,
 .thc-shell-ctl-spin-leave-active {
   transition:
-    opacity var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
-    transform var(--thc-motion-open, 240ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
+    opacity var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1)),
+    transform var(--thc-motion-open, 320ms) var(--thc-ease, cubic-bezier(0.22, 0.61, 0.36, 1));
 }
 
 .thc-shell-ctl-spin-enter-from {
