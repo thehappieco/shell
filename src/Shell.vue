@@ -1329,9 +1329,9 @@ onBeforeUnmount(() => {
   font-weight: 650;
   line-height: 1.15;
   letter-spacing: -0.02em;
-  /* A long title breaks between syllables, in the page's language, before
-     it breaks anywhere inside a word. */
-  hyphens: auto;
+  /* A word longer than the line breaks anywhere inside it; from 360 px a
+     title otherwise breaks between whole words (hyphens: auto there would
+     split words that fit whole on the next line). */
   overflow-wrap: anywhere;
 }
 
@@ -2008,6 +2008,9 @@ onBeforeUnmount(() => {
   .thc-shell-title {
     font-size: 17px;
     letter-spacing: -0.015em;
+    /* Under 360 px the title has as little as 110 px: it breaks between
+       syllables, in the page's language, before anywhere inside a word. */
+    hyphens: auto;
   }
 
   .thc-shell-title-pair {

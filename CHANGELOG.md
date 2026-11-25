@@ -2,6 +2,10 @@
 
 Published to `github.com/thehappieco/shell` by `scripts/shell-package.sh`, which copies this file and refuses a version it does not name.
 
+## 1.7.2 (2026-11-25)
+
+- **The title hyphenates only under 360 px.** 1.7.1 set `hyphens: auto` at every width, so from 360 to 390 px Chrome split words that would have fitted whole on the next line ("Outro servi- / dor (IMAP)", "email ac- / count again"; Mailie's report, 132 act titles measured). The title now hyphenates only under 360 px, where 1.7.1's room problem was; from 360 px it breaks between whole words, as in 1.7.0, and a word longer than the line still breaks inside it. Nothing else changes.
+
 ## 1.7.1 (2026-11-25)
 
 - **The title on the narrowest phones.** Under 360 px the header's title is 17 px (was 20), and the app's badge beside it (its symbol, or its letter) is not drawn, so the text keeps its room: at 320 px, with the theme, the language, one app action and the menu button, it had about 53 px and broke inside its words (Wappie's report, 2026-11-23). An app whose title is its written name keeps its symbol, at 26 px. At every width the title now hyphenates in the shell's language (`hyphens: auto`) before it breaks anywhere inside a word. The menu and the tabs still name the app. Nothing else changes.
