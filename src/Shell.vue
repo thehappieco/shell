@@ -1329,6 +1329,9 @@ onBeforeUnmount(() => {
   font-weight: 650;
   line-height: 1.15;
   letter-spacing: -0.02em;
+  /* A long title breaks between syllables, in the page's language, before
+     it breaks anywhere inside a word. */
+  hyphens: auto;
   overflow-wrap: anywhere;
 }
 
@@ -1984,6 +1987,41 @@ onBeforeUnmount(() => {
   .thc-shell-title-row > .thc-shell-title-mark {
     width: 30px;
     height: 30px;
+  }
+}
+
+/* The narrowest phones (320 px): with the theme, the language, an app's
+   action and the menu button, the title kept about 53 px and broke inside
+   its words. Here it is smaller, the app's badge beside it gives its room
+   to the text (the menu and the tabs still name the app; an app whose
+   title is its written name keeps its symbol, smaller), and a word that
+   still does not fit hyphenates in the page's language. */
+@media (max-width: 359.98px) {
+  .thc-shell-head-row {
+    gap: 4px;
+  }
+
+  .thc-shell-title-row {
+    gap: 8px;
+  }
+
+  .thc-shell-title {
+    font-size: 17px;
+    letter-spacing: -0.015em;
+  }
+
+  .thc-shell-title-pair {
+    gap: calc(26px * 0.24);
+  }
+
+  .thc-shell-title-pair .thc-shell-bm-svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .thc-shell-title-row > .thc-shell-title-mark,
+  .thc-shell-title-row > .thc-shell-av {
+    display: none;
   }
 }
 

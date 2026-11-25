@@ -2,6 +2,10 @@
 
 Published to `github.com/thehappieco/shell` by `scripts/shell-package.sh`, which copies this file and refuses a version it does not name.
 
+## 1.7.1 (2026-11-25)
+
+- **The title on the narrowest phones.** Under 360 px the header's title is 17 px (was 20), and the app's badge beside it (its symbol, or its letter) is not drawn, so the text keeps its room: at 320 px, with the theme, the language, one app action and the menu button, it had about 53 px and broke inside its words (Wappie's report, 2026-11-23). An app whose title is its written name keeps its symbol, at 26 px. At every width the title now hyphenates in the shell's language (`hyphens: auto`) before it breaks anywhere inside a word. The menu and the tabs still name the app. Nothing else changes.
+
 ## 1.7.0 (2026-11-23)
 
 - **An app may reach its screens through the console too.** `screensThroughConsole` (1.6.2) was the console's alone; an app whose screens the console draws may now pass it on its own pages (its act pages, for one), so its screen tabs and the selector's link that keeps a screen name the console's page of each (`{console}/workspaces/{workspace}/apps/{app}/{screen}`) instead of the app's own screen. That page draws the screen when the console keeps it, waits for it when the console alone serves it (Mailie's `email-accounts` and `permissions` since 2026-11-23), and goes on to the app's screen otherwise. Mailie, whose own screens now send the browser to the console, saves the hop that way. The model already built those links on any host; only the rule changes. `/v1/shell`'s answer and the contract's paths are unchanged.
